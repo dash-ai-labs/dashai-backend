@@ -1,0 +1,48 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8080
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./.env
+    depends_on:
+      - redis_db
+    volumes:
+      - ./:/workspace/dash_ai
+
+  redis_db:
+    image: redis:7
+
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: dash_db
+    restart: always
+    environment:
+      POSTGRES_USER: dash_user
+      POSTGRES_PASSWORD: dash_pass
+      POSTGRES_DB: dash
+    ports:
+      - "5431:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  celery_worker:
+    build: .
+    command: celery -A src.celery_config:celery worker -l info
+    env_file:
+      - ./.env
+    depends_on:
+      - redis_db
+
+  celery_beat:
+    build: .
+    command: celery -A src.celery_config:celery beat -l info
+    env_file:
+      - ./.env
+    depends_on:
+      - redis_db
+volumes:
+  postgres_data:

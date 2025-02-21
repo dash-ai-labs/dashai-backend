@@ -1,0 +1,97 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    command: ./entrypoint.sh
+    expose:
+      - 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis_db
+      - cloud-sql-proxy
+    env_file:
+      - ./.env
+    logging:
+      driver: gcplogs
+      options:
+        labels: environment,version
+        env: GCP_LOG_LEVEL
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          memory: 2G
+
+  cloud-sql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+    container_name: cloud-sql-proxy
+    command:
+      - "--address=0.0.0.0"
+      - ${CONNECTION_NAME}
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./.env
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          memory: 128M
+    networks:
+      - shared-network
+
+  redis_db:
+    image: redis:7
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  celery_worker:
+    build: .
+    command: celery -A src.celery_config:celery worker -l info --pool=threads --concurrency=2
+    env_file:
+      - ./.env
+    depends_on:
+      - redis_db
+      - cloud-sql-proxy
+    logging:
+      driver: gcplogs
+      options:
+        labels: environment,version
+        env: GCP_LOG_LEVEL
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 14G
+        
+
+  celery_beat:
+    build: .
+    command: celery -A src.celery_config:celery beat -l info
+    env_file:
+      - ./.env
+    depends_on:
+      - redis_db
+      - cloud-sql-proxy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
+networks:
+  shared-network:
+    name: shared_network
+    external: true
