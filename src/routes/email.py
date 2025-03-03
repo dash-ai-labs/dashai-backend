@@ -108,7 +108,7 @@ async def modify_email(
     if user_id == user.get("user_id"):
         with get_db() as db:
             email = db.query(Email).filter(Email.email_id == email_id).first()
-            if email and email.email_account.user_id == int(user_id):
+            if email and email.email_account.user_id == user_id:
                 if action == ActionType.read:
                     e = email.mark_as_read()
                 elif action == ActionType.unread:
