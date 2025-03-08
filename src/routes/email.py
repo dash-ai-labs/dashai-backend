@@ -27,7 +27,7 @@ class LabelActionType(Enum):
 
 
 @router.get("/user/{user_id}/emails")
-async def get_email_accounts(
+async def get_emails(
     request: Request,
     user_id: str,
     account: str = Query(default=""),
@@ -47,6 +47,17 @@ async def get_email_accounts(
                 )
                 if not email_account:
                     raise HTTPException(status_code=404, detail="Email account not found")
+
+                # Get total count for pagination
+                total_count = (
+                    db.query(Email)
+                    .filter(
+                        Email.email_account_id == email_account.id,
+                        and_(*(Email.labels.any(label) for label in labels)),
+                    )
+                    .count()
+                )
+
                 emails: list[Email] = (
                     db.query(Email)
                     .filter(
@@ -65,6 +76,17 @@ async def get_email_accounts(
                     .filter(EmailAccount.user_id == user_id)
                     .values(EmailAccount.id)
                 ]
+
+                # Get total count for pagination
+                total_count = (
+                    db.query(Email)
+                    .filter(
+                        Email.email_account_id.in_(email_account_ids),
+                        and_(*(Email.labels.any(label) for label in labels)),
+                    )
+                    .count()
+                )
+
                 emails: list[Email] = (
                     db.query(Email)
                     .filter(
@@ -77,7 +99,10 @@ async def get_email_accounts(
                     .all()
                 )
 
-            return [email.to_dict() for email in emails]
+            # Check if we've reached the end of the records
+            end = (page - 1) * limit + len(emails) >= total_count
+
+            return {"emails": [email.to_dict() for email in emails], "end": end}
 
     raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -108,7 +133,7 @@ async def modify_email(
     if user_id == user.get("user_id"):
         with get_db() as db:
             email = db.query(Email).filter(Email.email_id == email_id).first()
-            if email and email.email_account.user_id == user_id:
+            if email and str(email.email_account.user_id) == user_id:
                 if action == ActionType.read:
                     e = email.mark_as_read()
                 elif action == ActionType.unread:
