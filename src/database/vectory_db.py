@@ -11,7 +11,7 @@ from pinecone.grpc import PineconeGRPC
 
 from src.libs import SafeSemanticSplitter
 from src.libs.const import OPENAI_API_KEY, PINECONE_API_KEY
-from src.libs.rag_prompts import EMAIL_SUGGESTION_PROMPT, EMAIL_SYSTEM_PROMPT
+from src.libs.rag_prompts import EMAIL_SYSTEM_PROMPT
 
 Settings.chunk_size = 8192
 
