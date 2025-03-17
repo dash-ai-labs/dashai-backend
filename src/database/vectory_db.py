@@ -11,7 +11,7 @@ from pinecone.grpc import PineconeGRPC
 
 from src.libs import SafeSemanticSplitter
 from src.libs.const import OPENAI_API_KEY, PINECONE_API_KEY
-from src.libs.rag_prompts import EMAIL_SYSTEM_PROMPT
+from src.libs.rag_prompts import EMAIL_SUGGESTION_PROMPT, EMAIL_SYSTEM_PROMPT
 
 Settings.chunk_size = 8192
 
@@ -161,6 +161,25 @@ class VectorDB:
         response = query_engine.query(formatted_query)
         for text in response.response_gen:
             yield json.dumps({"data": text}) + "\n"
+
+    def suggest(
+        self,
+        query: str,
+        user_id: str,
+        filter: dict,
+        top_k: int = 50,
+    ):
+        index = VectorStoreIndex.from_vector_store(
+            vector_store=PineconeVectorStore(pinecone_index=self.index, namespace=str(user_id)),
+            embed_model=self.embed_model,
+        )
+        query_engine = index.as_query_engine(
+            llm=llm, streaming=True, similarity_top_k=top_k, filter=filter
+        )
+        formatted_query = EMAIL_SUGGESTION_PROMPT + query
+        response = query_engine.query(formatted_query)
+        for text in response.response_gen:
+            yield text
 
     def list(self, namespace: str):
         return self.index.list(namespace=str(namespace))
