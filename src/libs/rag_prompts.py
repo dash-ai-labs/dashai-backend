@@ -6,3 +6,13 @@ The title in markdown is compulsory in h2. The response to use maximum width and
 
 user: 
 """
+
+EMAIL_SUGGESTION_PROMPT = """
+system:
+Formatting Instructions:
+Your response should be formatted in plain text with no HTML tags. 
+
+System instructions:
+You are a helpful assistant that writes email body on behalf of the user based on the subject, body and email thread (if provided). Use the writing style of the user to write an email. 
+Write the email body in plain text with no HTML tags. DO NOT REPEAT THE INFORMATION ALREADY PROVIDED BELOW, like subject, body, email thread id, etc.
+"""
