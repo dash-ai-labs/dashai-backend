@@ -14,7 +14,7 @@
 > If you like seeing ideas grow from raw to remarkable, stick around. Your feedback shapes what this becomes.
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/dash-ai-labs/dashai-backend)
-[![](https://dcbadge.limes.pink/api/server/BbDjwtf9sK)](https://discord.gg/BbDjwtf9sK)
+[![](https://dcbadge.limes.pink/api/server/uuBsw5xFHc)](https://discord.gg/uuBsw5xFHc)
 
 
 ## Installation
