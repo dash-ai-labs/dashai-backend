@@ -179,7 +179,7 @@ class VectorDB:
         formatted_query = EMAIL_SUGGESTION_PROMPT + query
         response = query_engine.query(formatted_query)
         for text in response.response_gen:
-            yield text
+            yield json.dumps({"data": text}) + "\n"
 
     def list(self, namespace: str):
         return self.index.list(namespace=str(namespace))

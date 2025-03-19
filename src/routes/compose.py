@@ -37,5 +37,5 @@ async def create_suggestion(
                 query=query,
                 filter=filter,
             ),
-            media_type="text/plain",
+            media_type="application/json",
         )
