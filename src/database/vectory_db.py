@@ -166,6 +166,7 @@ class VectorDB:
         self,
         query: str,
         user_id: str,
+        name: str,
         filter: dict,
         top_k: int = 50,
     ):
@@ -176,7 +177,7 @@ class VectorDB:
         query_engine = index.as_query_engine(
             llm=llm, streaming=True, similarity_top_k=top_k, filter=filter
         )
-        formatted_query = EMAIL_SUGGESTION_PROMPT + query
+        formatted_query = EMAIL_SUGGESTION_PROMPT.format(user=name) + query
         response = query_engine.query(formatted_query)
         for text in response.response_gen:
             yield json.dumps({"data": text}) + "\n"
