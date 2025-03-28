@@ -156,36 +156,29 @@ async def get_email_accounts(request: Request, user_id: str, user=Depends(get_us
 
 
 @router.post("/user/{user_id}/email_accounts/register")
-async def register_email_account(
-    request: Request, user_id: str, user=Depends(get_user_id)
-):
+async def register_email_account(request: Request, user_id: str, user=Depends(get_user_id)):
     if user_id == user.get("user_id"):
-        with get_db() as db:
-            # Generate code verifier
-            code_verifier = secrets.token_urlsafe(32)
-            # Generate code challenge
-            code_challenge = (
-                base64.urlsafe_b64encode(
-                    hashlib.sha256(code_verifier.encode()).digest()
-                )
-                .decode()
-                .rstrip("=")
-            )
-            flow_service = FlowService(
-                state=base64.urlsafe_b64encode(
-                    json.dumps(
-                        {"code_verifier": code_verifier, "user_id": user_id}
-                    ).encode()
-                ).decode()
-            )
-            url, state = flow_service.authorization_url(
-                access_type="offline",  # Ensures we get a refresh token
-                include_granted_scopes="true",  # Use previously granted scopes
-                prompt="consent",  # Prompt the user to ensure consent for refresh token
-                code_challenge=code_challenge,
-                code_challenge_method="S256",  # Use SHA256 for code challenge
-            )
-            return {"url": url}
+        # Generate code verifier
+        code_verifier = secrets.token_urlsafe(32)
+        # Generate code challenge
+        code_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+            .decode()
+            .rstrip("=")
+        )
+        flow_service = FlowService(
+            state=base64.urlsafe_b64encode(
+                json.dumps({"code_verifier": code_verifier, "user_id": user_id}).encode()
+            ).decode()
+        )
+        url, state = flow_service.authorization_url(
+            access_type="offline",  # Ensures we get a refresh token
+            include_granted_scopes="true",  # Use previously granted scopes
+            prompt="consent",  # Prompt the user to ensure consent for refresh token
+            code_challenge=code_challenge,
+            code_challenge_method="S256",  # Use SHA256 for code challenge
+        )
+        return {"url": url}
 
 
 @router.get("/user/{user_id}/profile")

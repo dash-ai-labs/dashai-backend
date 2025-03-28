@@ -21,9 +21,16 @@ class Token(Base):
     def get_or_create_token(
         cls, db: Session, email_account_id: UUID, token: str, refresh_token: str
     ):
-        token = db.query(cls).filter(cls.email_account_id == email_account_id).first()
-        if not token:
-            token = cls(email_account_id=email_account_id, token=token, refresh_token=refresh_token)
-            db.add(token)
+        token_obj = db.query(cls).filter(cls.email_account_id == email_account_id).first()
+        if not token_obj:
+            new_token = cls(
+                email_account_id=email_account_id, token=token, refresh_token=refresh_token
+            )
+            db.add(new_token)
             db.commit()
-        return token
+            return new_token
+        else:
+            token_obj.token = token
+            token_obj.refresh_token = refresh_token
+            db.commit()
+            return token_obj
