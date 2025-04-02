@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from typing import List, Set
 
 from celery import shared_task
-from memory_profiler import profile
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tqdm import tqdm
@@ -25,9 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(name="ingest_email")
-@profile
 def ingest_email(email_account_id: str):
-    logger.info("Ingesting emails...")
+    logger.info(f"Ingesting emails for {email_account_id}")
     with get_db() as db:
         email_account = db.query(EmailAccount).get(email_account_id)
         if email_account.status == EmailAccountStatus.NOT_STARTED:
@@ -54,7 +52,6 @@ def ingest_email(email_account_id: str):
 
 
 @shared_task(name="get_new_emails")
-@profile
 def get_new_emails():
     """
     Synchronize new emails for all email accounts with robust error handling and logging.
@@ -134,19 +131,22 @@ def _process_email_account(db: Session, email_account: EmailAccount, from_date: 
 
     # Fetch message IDs
     messages = gmail_service.list_messages(q=f"after:{from_date}")
-    message_ids = [message["id"] for message in messages]
+    if len(messages) > 0:
+        message_ids = [message["id"] for message in messages]
 
-    # Check for existing messages
-    existing_messages = _get_existing_messages(db, message_ids)
+        # Check for existing messages
+        existing_messages = _get_existing_messages(db, message_ids)
 
-    # Identify new messages
-    new_message_ids = set(message_ids) - existing_messages
+        # Identify new messages
+        new_message_ids = set(message_ids) - existing_messages
 
-    # Process and insert new emails in chunks
-    _insert_new_emails(db, gmail_service, email_account, new_message_ids)
+        # Process and insert new emails in chunks
+        _insert_new_emails(db, gmail_service, email_account, new_message_ids)
 
-    # Update last sync time and trigger email embedding
-    _finalize_account_sync(db, email_account, new_message_ids)
+        # Update last sync time and trigger email embedding
+        _finalize_account_sync(db, email_account, new_message_ids)
+    else:
+        logger.info(f"No new emails found for {email_account.id}")
 
 
 def _validate_token(email_account: EmailAccount) -> Token:
@@ -260,7 +260,6 @@ def _finalize_account_sync(db: Session, email_account: EmailAccount, new_message
 
 
 @shared_task(name="embed_new_emails")
-@profile
 def embed_new_emails(user_id: str = None):
     with get_db() as db:
         users = db.query(User).all()

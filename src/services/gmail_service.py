@@ -34,10 +34,11 @@ class GmailService:
         if cred and cred.expired and cred.refresh_token:
             try:
                 cred.refresh(Request())
-                with session() as db:
+                with session as db:
                     token.token = cred.token
                     token.refresh_token = cred.refresh_token
                     token.updated_at = datetime.utcnow()
+                    db.commit()
                 return cred
             except RefreshError:
                 print("Token refresh failed")
@@ -45,21 +46,25 @@ class GmailService:
         return cred
 
     def list_messages(self, user_id="me", q=None):
-        result = self._service.users().messages().list(userId=user_id, q=q).execute()
-        messages = []
-        if "messages" in result:
-            messages.extend(result["messages"])
-        while "nextPageToken" in result:
-            page_token = result["nextPageToken"]
-            result = (
-                self._service.users()
-                .messages()
-                .list(userId="me", q=q, pageToken=page_token)
-                .execute()
-            )
+        try:
+            result = self._service.users().messages().list(userId=user_id, q=q).execute()
+            messages = []
             if "messages" in result:
                 messages.extend(result["messages"])
-        return messages
+            while "nextPageToken" in result:
+                page_token = result["nextPageToken"]
+                result = (
+                    self._service.users()
+                    .messages()
+                    .list(userId="me", q=q, pageToken=page_token)
+                    .execute()
+                )
+                if "messages" in result:
+                    messages.extend(result["messages"])
+            return messages
+        except Exception as e:
+            print(f"Error listing messages: {str(e)}")
+            return []
 
     def get_message(self, message_id, user_id="me"):
         return self._service.users().messages().get(userId=user_id, id=message_id).execute()
