@@ -8,3 +8,4 @@ from .label import Color, Label
 from .token import Token
 from .user import User
 from .vectory_db import VectorDB
+from .task import EmailTask
