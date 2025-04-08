@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 import json
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from src.database.email import Email
 from src.database.task import EmailTask, TaskStatus
@@ -73,11 +73,11 @@ def _create_task(
     return task.to_dict()
 
 
-@router.post("/user/{user_id}/email/{email_id}/task")
+@router.post("/user/{user_id}/task")
 async def email_task_action(
     request: Request,
     user_id: str,
-    email_id: str,
+    email_id: str = Body(...),
     action: TaskActionType = Body(...),
     task_id: str = Body(None),
     status: TaskStatus = Body(None),
@@ -142,3 +142,26 @@ async def email_task_action(
                     return task.to_dict()
                 else:
                     raise HTTPException(status_code=403, detail="Unauthorized")
+
+
+@router.get("/user/{user_id}/tasks")
+async def get_tasks(
+    request: Request,
+    user_id: str,
+    email_account_id: str = Query(None),
+    status: TaskStatus = Query(None),
+    page: int = Query(1),
+    limit: int = Query(10),
+    user=Depends(get_user_id),
+):
+    if user_id == user.get("user_id"):
+        with get_db() as db:
+            query = db.query(EmailTask).filter(EmailTask.email_account.user_id == user_id)
+            if email_account_id:
+                query = query.filter(EmailTask.email_account_id == email_account_id)
+            if status:
+                query = query.filter(EmailTask.status == status)
+            tasks = query.offset((page - 1) * limit).limit(limit).all()
+            return [task.to_dict() for task in tasks]
+    else:
+        raise HTTPException(status_code=403, detail="Unauthorized")
