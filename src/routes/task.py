@@ -118,7 +118,7 @@ async def email_task_action(
                         )
             elif action == TaskActionType.update:
                 task: EmailTask = db.query(EmailTask).filter(EmailTask.id == task_id).first()
-                if task.email_account.user_id == user_id:
+                if task.email_account.user_id == user_id and task.email_id == email_id:
                     update_dict = {}
                     if status:
                         update_dict["status"] = status
@@ -136,7 +136,7 @@ async def email_task_action(
                     raise HTTPException(status_code=403, detail="Unauthorized")
             elif action == TaskActionType.delete:
                 task: EmailTask = db.query(EmailTask).filter(EmailTask.id == task_id).first()
-                if task.email_account.user_id == user_id:
+                if task.email_account.user_id == user_id and task.email_id == email_id:
                     task.status = TaskStatus.ARCHIVED
                     db.commit()
                     return task.to_dict()
