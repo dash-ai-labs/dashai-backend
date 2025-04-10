@@ -11,7 +11,7 @@ env:
   REPO_NAME: web
   IMAGE_NAME: ${{ github.sha }}
   TAG: latest
-  FASTAPI_IMAGE: ${{ vars.REGION }}-docker.pkg.dev/${{ vars.PROJECT_ID }}/${{ vars.REPO_NAME }}/${{ vars.IMAGE_NAME }}:${{ vars.TAG }}
+  FASTAPI_IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ vars.TAG }}
 
 jobs:
   deploy:
