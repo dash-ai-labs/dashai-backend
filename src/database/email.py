@@ -55,7 +55,7 @@ class Email(Base):
     email_id = Column(String)
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"))
     email_account = relationship("EmailAccount", back_populates="emails")
-
+    tasks = relationship("EmailTask", back_populates="email")
     email_labels = relationship(
         "EmailLabel", secondary=email_lable_association_table, back_populates="emails"
     )

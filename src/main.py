@@ -1,5 +1,4 @@
 import secrets
-from collections import OrderedDict
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Response
@@ -7,7 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from src.libs.const import STAGE
-from src.routes import auth_router, email_router, label_router, proxy_router, compose_router
+from src.routes import (
+    auth_router,
+    email_router,
+    label_router,
+    proxy_router,
+    compose_router,
+    task_router,
+)
 
 load_dotenv()
 
@@ -94,6 +100,7 @@ app.include_router(email_router)
 app.include_router(label_router)
 app.include_router(proxy_router)
 app.include_router(compose_router)
+app.include_router(task_router)
 
 
 @app.get("/healthcheck")

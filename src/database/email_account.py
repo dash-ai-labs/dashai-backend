@@ -50,6 +50,7 @@ class EmailAccount(Base):
     token = relationship("Token", back_populates="email_account", uselist=False)
     user = relationship("User", back_populates="email_accounts")
     emails = relationship("Email", back_populates="email_account")
+    tasks = relationship("EmailTask", back_populates="email_account")
     status = Column(
         Enum(EmailAccountStatus),
         default=EmailAccountStatus.NOT_STARTED,
