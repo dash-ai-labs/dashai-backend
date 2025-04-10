@@ -3,7 +3,7 @@ name: Push to Artifact Registry
 on:
   push:
     branches:
-      - main  # or your deployment branch
+      - main
 
 env:
   PROJECT_ID: dash-ai-app
