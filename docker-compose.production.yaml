@@ -21,10 +21,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 4G
+          cpus: '4'
+          memory: 6G
         reservations:
-          memory: 2G
+          memory: 4G
 
   cloud-sql-proxy:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
