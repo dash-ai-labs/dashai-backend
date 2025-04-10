@@ -9,9 +9,7 @@ env:
   PROJECT_ID: dash-ai-app
   REGION: us-central1
   REPO_NAME: web
-  IMAGE_NAME: ${{ github.sha }}
   TAG: latest
-  FASTAPI_IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ vars.TAG }}
 
 jobs:
   deploy:
@@ -31,6 +29,11 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
           export_default_credentials: true
+      
+      - name: Set dynamic image name
+        run: |
+          echo "IMAGE_NAME=${{ github.sha }}" >> $GITHUB_ENV
+          echo "FASTAPI_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ github.sha }}:${{ env.TAG }}" >> $GITHUB_ENV
 
       - name: Authenticate Docker for Artifact Registry
         run: |
