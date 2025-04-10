@@ -1,8 +1,8 @@
-"""Add email task
+"""add email task model
 
-Revision ID: bc265aab5bfd
+Revision ID: 8940cfdef107
 Revises: b93fc08c3005
-Create Date: 2025-04-08 12:02:28.691464
+Create Date: 2025-04-10 00:02:39.862080
 
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "bc265aab5bfd"
+revision: str = "8940cfdef107"
 down_revision: Union[str, None] = "b93fc08c3005"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -24,6 +24,9 @@ def upgrade() -> None:
         "email_tasks",
         sa.Column("email_account_id", sa.UUID(), nullable=True),
         sa.Column("email_id", sa.UUID(), nullable=True),
+        sa.Column("url", sa.String(), nullable=True),
+        sa.Column("url_text", sa.String(), nullable=True),
+        sa.Column("thumbnail_url", sa.String(), nullable=True),
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=False),

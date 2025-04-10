@@ -107,6 +107,15 @@ async def get_emails(
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+@router.get("/user/{user_id}/email/{email_id}")
+async def get_email(request: Request, user_id: str, email_id: str, user=Depends(get_user_id)):
+    if user_id == user.get("user_id"):
+        with get_db() as db:
+            email = db.query(Email).filter(Email.id == email_id).first()
+            return email.to_dict()
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @router.get("/user/{user_id}/email/{email_id}/content")
 async def get_email_content(
     request: Request, user_id: str, email_id: str, user=Depends(get_user_id)

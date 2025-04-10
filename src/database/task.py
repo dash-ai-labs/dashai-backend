@@ -1,10 +1,10 @@
 import uuid
 
 from datetime import datetime
-from sqlalchemy import UUID, Column, DateTime, ForeignKey, String
+from sqlalchemy import UUID, Column, DateTime, ForeignKey, String, JSON
 from enum import Enum as PyEnum
 from sqlalchemy.orm import relationship
-
+from pydantic import BaseModel
 from src.database.db import Base
 
 
@@ -33,6 +33,9 @@ class EmailTask(Task):
     email_account = relationship("EmailAccount", back_populates="tasks")
     email_id = Column(UUID, ForeignKey("emails.id"))
     email = relationship("Email", back_populates="tasks")
+    url = Column(String)
+    url_text = Column(String)
+    thumbnail_url = Column(String)
 
     def to_dict(self):
         return {
@@ -45,4 +48,7 @@ class EmailTask(Task):
             "updated_at": self.updated_at,
             "email_account_id": self.email_account_id,
             "email_id": self.email_id,
+            "url": self.url,
+            "url_text": self.url_text,
+            "thumbnail_url": self.thumbnail_url,
         }

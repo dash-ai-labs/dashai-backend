@@ -5,6 +5,7 @@ import json
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from src.database.email import Email
+from src.database.email_account import EmailAccount
 from src.database.task import EmailTask, TaskStatus
 from src.database.db import get_db
 from src.libs.const import OPENAI_API_KEY
@@ -20,45 +21,78 @@ router = APIRouter()
 class TaskActionType(Enum):
     create = "create"
     update = "update"
-    delete = "delete"
+    archive = "archive"
 
 
-functions = [
+tools = [
     {
-        "name": "create_action_task",
-        "description": "Uses an email to create an action based task for the user containing the details from the email and any actionable items",
-        "strict": True,
-        "parameters": {
-            "type": "object",
-            "required": ["title", "description", "due_date"],
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Title of the actionable task summarizing the task from the email",
+        "type": "function",
+        "function": {
+            "name": "create_action_task",
+            "description": "Uses an email to create an action based task for the user containing the details from the email and any actionable items",
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "task_actions",
+                    "thumbnail_url",
+                ],
+                "properties": {
+                    "task_actions": {
+                        "type": "array",
+                        "description": "Array of task actions to be taken based on the email. Each action should be an object with a url and url_text.",
+                        "items": {
+                            "type": "object",
+                            "required": ["title", "description", "due_date", "url", "url_text"],
+                            "properties": {
+                                "url": {
+                                    "type": "string",
+                                    "description": "Optional URL that is mentioned in the email for the primary action. For example, a link to a product or service, a calendar invite, a tracking link, etc.",
+                                },
+                                "url_text": {
+                                    "type": "string",
+                                    "description": "Optional text that is mentioned in the email for the primary action to describe the URL. For example, 'Click here to view', 'Learn more', 'Sign up','Schedule meeting', 'Track order', etc.",
+                                },
+                                "title": {
+                                    "type": "string",
+                                    "description": "Title of the actionable task summarizing the task from the email",
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "Description of the actionable task with details from the email. Should be less than 150 characters.",
+                                },
+                                "due_date": {
+                                    "type": "string",
+                                    "description": "Optional due date for the task, formatted as YYYY-MM-DD",
+                                },
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
+                    "thumbnail_url": {
+                        "type": ["string", "null"],
+                        "description": "Optional thumbnail URL of sender of the email. This should be from the email content only.",
+                    },
                 },
-                "description": {
-                    "type": "string",
-                    "description": "Description of the actionable task with details from the email",
-                },
-                "due_date": {
-                    "type": "string",
-                    "description": "Optional due date for the task, formatted as YYYY-MM-DD",
-                },
+                "additionalProperties": False,
             },
-            "additionalProperties": False,
         },
     }
 ]
 
 
 def _create_task(
+    db: Session,
     title: str,
     description: str,
     email_account_id: str,
     email_id: str,
     due_date: str,
-    db: Session,
+    url: str = None,
+    url_text: str = None,
+    thumbnail_url: str = None,
 ):
+
     due_date_obj = datetime.strptime(due_date, "%Y-%m-%d")
     task = EmailTask(
         title=title,
@@ -67,10 +101,12 @@ def _create_task(
         email_id=email_id,
         due_date=due_date_obj,
         status=TaskStatus.PENDING,
+        url=url,
+        url_text=url_text,
+        thumbnail_url=thumbnail_url,
     )
-    db.add(task)
-    db.commit()
-    return task.to_dict()
+
+    return task
 
 
 @router.post("/user/{user_id}/task")
@@ -96,29 +132,36 @@ async def email_task_action(
                         messages=[
                             {
                                 "role": "system",
-                                "content": "You are a helpful assistant that creates actionable tasks from emails.",
+                                "content": "You are a helpful assistant that creates actionable tasks from emails. Today's date is "
+                                + datetime.now().strftime("%Y-%m-%d"),
                             },
                             {
                                 "role": "user",
                                 "content": f"Subject: {email.subject}\nBody: {email.raw_content}",
                             },
                         ],
-                        functions=functions,
-                        function_call="auto",
+                        tools=tools,
                     )
-                    if response.choices[0].finish_reason == "function_call":
-                        function_call = response.choices[0].message.function_call
-                        args = json.loads(function_call.arguments)
-
-                        return _create_task(
+                    function_call = response.choices[0].message.tool_calls[0]
+                    arguments = json.loads(function_call.function.arguments)
+                    task_actions = arguments["task_actions"]
+                    thumbnail_url = arguments["thumbnail_url"]
+                    tasks = [
+                        _create_task(
                             email_account_id=email.email_account_id,
                             email_id=email_id,
                             db=db,
+                            thumbnail_url=thumbnail_url,
                             **args,
                         )
+                        for args in task_actions
+                    ]
+                    db.add_all(tasks)
+                    db.commit()
+                    return [task.to_dict() for task in tasks]
             elif action == TaskActionType.update:
                 task: EmailTask = db.query(EmailTask).filter(EmailTask.id == task_id).first()
-                if task.email_account.user_id == user_id and task.email_id == email_id:
+                if str(task.email_account.user_id) == user_id and str(task.email_id) == email_id:
                     update_dict = {}
                     if status:
                         update_dict["status"] = status
@@ -134,9 +177,10 @@ async def email_task_action(
                     return task.to_dict()
                 else:
                     raise HTTPException(status_code=403, detail="Unauthorized")
-            elif action == TaskActionType.delete:
+            elif action == TaskActionType.archive:
                 task: EmailTask = db.query(EmailTask).filter(EmailTask.id == task_id).first()
-                if task.email_account.user_id == user_id and task.email_id == email_id:
+
+                if str(task.email_account.user_id) == user_id and str(task.email_id) == email_id:
                     task.status = TaskStatus.ARCHIVED
                     db.commit()
                     return task.to_dict()
@@ -156,7 +200,14 @@ async def get_tasks(
 ):
     if user_id == user.get("user_id"):
         with get_db() as db:
-            query = db.query(EmailTask).filter(EmailTask.email_account.user_id == user_id)
+            # Get all email accounts for the user
+            user_email_accounts = (
+                db.query(EmailAccount).filter(EmailAccount.user_id == user_id).all()
+            )
+            email_account_ids = [account.id for account in user_email_accounts]
+
+            # Query tasks for all email accounts belonging to the user
+            query = db.query(EmailTask).filter(EmailTask.email_account_id.in_(email_account_ids))
             if email_account_id:
                 query = query.filter(EmailTask.email_account_id == email_account_id)
             if status:
