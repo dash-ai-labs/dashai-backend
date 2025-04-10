@@ -77,7 +77,6 @@ async def google_callback(callback: GoogleCallback):
     user_id = state.get("user_id", None)
     flow = FlowService()
     credentials = flow.credentials(code=code, code_verifier=code_verifier)
-    print("CREDENTIALS", credentials.token, credentials.refresh_token)
     google_profile_service = GoogleProfileService(
         oauth_token=credentials.token, refresh_token=credentials.refresh_token
     )
@@ -105,7 +104,6 @@ async def google_callback(callback: GoogleCallback):
 
         # Email account is not synced yet and no token found
         if not email_account.token and not email_account.last_sync:
-            print("params", email_account.id, credentials.token, credentials.refresh_token)
 
             oauth_token = Token.get_or_create_token(
                 db, email_account.id, credentials.token, credentials.refresh_token
