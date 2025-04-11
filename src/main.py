@@ -103,6 +103,6 @@ app.include_router(compose_router)
 app.include_router(task_router)
 
 
-@app.get("/healthcheck")
+@app.get("/health")
 def healthcheck():
     return {"status": "ok"}
