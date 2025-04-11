@@ -1,4 +1,4 @@
-name: Push to Artifact Registry
+name: Push to Artifact Registry and Deploy to Cloud Run
 
 on:
   push:
@@ -11,7 +11,7 @@ env:
   REPO_NAME: web
   IMAGE_NAME: backend
   TAG: latest
-
+  FASTAPI_SERVICE: fastapi-service
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -47,3 +47,14 @@ jobs:
         run: |
           docker push $FASTAPI_IMAGE
 
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          service: ${{ env.FASTAPI_SERVICE }}
+          image: ${{ env.FASTAPI_IMAGE }}
+          region: ${{ env.REGION }}
+          
+      - name: Show Output
+        run: |
+          echo "Cloud Run service deployed to URL: ${{ steps.deploy.outputs.url }}"
