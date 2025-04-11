@@ -13,7 +13,7 @@ env:
   TAG: latest
   FASTAPI_SERVICE: fastapi-service
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -46,6 +46,16 @@ jobs:
       - name: Push Docker image
         run: |
           docker push $FASTAPI_IMAGE
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up gcloud CLI
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_CLOUD_RUN_DEPLOY_KEY }}
 
       - name: Deploy to Cloud Run
         id: deploy
