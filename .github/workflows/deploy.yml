@@ -57,6 +57,10 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_CLOUD_RUN_DEPLOY_KEY }}
 
+      - name: Set dynamic image name
+        run: |
+          echo "FASTAPI_IMAGE=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}" >> $GITHUB_ENV
+
       - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v1
