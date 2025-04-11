@@ -27,7 +27,6 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - redis_db
       - cloud-sql-proxy
     logging:
       driver: gcplogs
@@ -46,7 +45,6 @@ services:
     env_file:
       - ./.env
     depends_on:
-      - redis_db
       - cloud-sql-proxy
     deploy:
       resources:
