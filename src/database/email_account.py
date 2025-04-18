@@ -34,14 +34,14 @@ class EmailAccountStatus(str, PyEnum):
 
 class EmailProvider(str, PyEnum):
     GMAIL = "GMAIL"
-
+    OUTLOOK = "OUTLOOK"
 
 class EmailAccount(Base):
     __tablename__ = "email_accounts"
 
     id = Column(UUID, primary_key=True, index=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True)
-    provider = Column(Enum(EmailProvider), default=EmailProvider.GMAIL)
+    provider = Column(Enum(EmailProvider, name="email_provider"))
     created_at = Column(DateTime, default=datetime.utcnow)
     profile_pic = Column(String)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -52,7 +52,7 @@ class EmailAccount(Base):
     emails = relationship("Email", back_populates="email_account")
     tasks = relationship("EmailTask", back_populates="email_account")
     status = Column(
-        Enum(EmailAccountStatus),
+        Enum(EmailAccountStatus, name="emailaccountstatus"),
         default=EmailAccountStatus.NOT_STARTED,
         server_default=EmailAccountStatus.SUCCESS,
     )
@@ -87,11 +87,12 @@ class EmailAccount(Base):
             raise HTTPException(status_code=500, detail="Failed to send email")
 
     @classmethod
-    def get_or_create_email_account(cls, db: Session, provider: EmailProvider, user, user_info):
+    def get_or_create_email_account(cls, db: Session, provider: EmailProvider, user, email):
+        print(provider, user.id, email)
         email_account = (
             db.query(cls)
             .filter(
-                cls.email == user_info["email"],
+                cls.email == email,
                 cls.user_id == user.id,
                 cls.provider == provider,
             )
@@ -102,7 +103,7 @@ class EmailAccount(Base):
             return email_account
 
         email_account = cls(
-            email=user_info["email"],
+            email=email,
             user_id=user.id,
             provider=provider,
         )
@@ -116,7 +117,7 @@ class EmailAccount(Base):
             return (
                 db.query(cls)
                 .filter(
-                    cls.email == user_info["email"],
+                    cls.email == email,
                     cls.user_id == user.id,
                     cls.provider == provider,
                 )

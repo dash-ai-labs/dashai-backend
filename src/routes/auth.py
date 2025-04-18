@@ -13,16 +13,16 @@ from src.celery_tasks import ingest_email
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
 from src.libs.const import SECRET_KEY
 from src.routes.middleware import ALGORITHM, get_user_id
-from src.services import FlowService, GoogleProfileService
+from src.services import FlowService, GoogleProfileService, OutlookService
 
 router = APIRouter()
 
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
 
-class GoogleAuthRequest(BaseModel):
+class Callback(BaseModel):
     code: str
-    redirect_uri: str
+    state: str
 
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,90 @@ def create_jwt_token(data: dict):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+@router.get("/auth/outlook/url")
+async def outlook_auth_url():
+    outlook_service = OutlookService()
+    # Generate code verifier
+    code_verifier = secrets.token_urlsafe(32)
+    # Generate code challenge
+    code_challenge = (
+        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+        .decode()
+        .rstrip("=")
+    )
+    state = base64.urlsafe_b64encode(json.dumps({"code_verifier": code_verifier}).encode()).decode()
+    return {"url": outlook_service.authorize_url(state=state, code_challenge=code_challenge)}
+
+
+@router.post("/auth/outlook/callback")
+async def outlook_callback(callback: Callback):
+    code = callback.code
+    state = callback.state
+    if state:
+        state = json.loads(base64.urlsafe_b64decode(state).decode("utf-8"))
+        user_id = state.get("user_id", None)
+        code_verifier = state.get("code_verifier", None)
+    else:
+        user_id = None
+        code_verifier = None
+    outlook_service = OutlookService()
+    token_data = outlook_service.exchange_code(code, code_verifier)
+    user_info = outlook_service.get_user_info(token_data["access_token"])
+    
+    with get_db() as db:
+        if user_id:
+            user = db.query(User).filter(User.id == user_id).first()
+        else:
+            user = db.query(User).filter(User.email == user_info["mail"]).first()
+
+        if not user:
+            user = User(
+                email=user_info["mail"],
+                name=user_info.get("displayName"),
+                outlook_id=user_info["id"],
+            )
+        email_account = EmailAccount.get_or_create_email_account(
+            db, EmailProvider.OUTLOOK, user, user_info["mail"]
+        )
+
+        # Email account is not synced yet and no token found
+        if not email_account.token and not email_account.last_sync:
+            oauth_token = Token.get_or_create_token(
+                db, email_account.id, token_data["access_token"], token_data["refresh_token"]
+            )
+            email_account.token = oauth_token
+
+            user.email_accounts.append(email_account)
+            db.add(oauth_token)
+
+        db.add_all([user, email_account])
+        db.commit()
+
+        # ingest_email.delay(email_account_id=email_account.id)
+
+        user.last_login = datetime.utcnow()
+        token = create_jwt_token({"sub": str(user.id)})
+        response = Response(
+            content=json.dumps(
+                {
+                    "id": str(user.id),
+                    "email": user.email,
+                    "name": user.name,
+                }
+            )
+        )
+        response.set_cookie(
+            key="auth_token",
+            value=token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+            max_age=60 * 60 * 24 * 30,  # 30 days
+            expires=60 * 60 * 24 * 30,
+        )
+        return response
 
 
 @router.get("/auth/google/url")
@@ -62,13 +146,8 @@ async def google_auth_url():
     return {"url": url}
 
 
-class GoogleCallback(BaseModel):
-    code: str
-    state: str
-
-
 @router.post("/auth/google/callback")
-async def google_callback(callback: GoogleCallback):
+async def google_callback(callback: Callback):
     # Exchange code for tokens
     code, state = callback.code, callback.state
     state = json.loads(base64.urlsafe_b64decode(state).decode("utf-8"))
@@ -99,7 +178,7 @@ async def google_callback(callback: GoogleCallback):
         user.profile_pic = user_info.get("picture")
 
         email_account = EmailAccount.get_or_create_email_account(
-            db, EmailProvider.GMAIL, user, user_info
+            db, EmailProvider.GMAIL, user, user_info["email"]
         )
 
         # Email account is not synced yet and no token found
