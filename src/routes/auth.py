@@ -116,7 +116,7 @@ async def google_callback(callback: GoogleCallback):
         db.add_all([email_account, user])
         db.commit()
         print("Ingesting email")
-        ingest_email.delay(email_account_id=email_account.id)
+        ingest_email.apply_async(email_account_id=email_account.id)
         print("Ingesting email done")
         user.last_login = datetime.utcnow()
 
