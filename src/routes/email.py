@@ -107,7 +107,7 @@ async def get_emails(
 async def get_email(request: Request, user_id: str, email_id: str, user=Depends(get_user_id)):
     if user_id == user.get("user_id"):
         with get_db() as db:
-            email = db.query(Email).filter(Email.id == email_id).first()
+            email = db.query(Email).filter(Email.email_id == email_id).first()
             return email.to_dict()
     raise HTTPException(status_code=401, detail="Unauthorized")
 
