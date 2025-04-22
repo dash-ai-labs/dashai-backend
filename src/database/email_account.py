@@ -41,7 +41,7 @@ class EmailAccount(Base):
 
     id = Column(UUID, primary_key=True, index=True, default=uuid.uuid4)
     email = Column(String, unique=True, index=True)
-    provider = Column(Enum(EmailProvider, name="email_provider"))
+    provider = Column(Enum(EmailProvider, name="emailprovider"))
     created_at = Column(DateTime, default=datetime.utcnow)
     profile_pic = Column(String)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

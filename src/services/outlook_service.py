@@ -1,24 +1,31 @@
+import asyncio
 import urllib.parse
 
 import requests
-from sqlalchemy.orm import Session
+from kiota_abstractions.base_request_configuration import RequestConfiguration
+from msgraph.generated.users.item.messages.messages_request_builder import (
+    MessagesRequestBuilder,
+)
+from msgraph.graph_service_client import GraphServiceClient
 
-from src.database import get_db
 from src.database.token import Token
+from src.libs.const import (
+    MSFT_CLIENT_ID,
+    MSFT_CLIENT_SECRET,
+    MSFT_REDIRECT_URI,
+    MSFT_TENANT_ID,
+)
 
-from src.libs.const import MSFT_CLIENT_ID, MSFT_REDIRECT_URI, MSFT_TENANT_ID, MSFT_CLIENT_SECRET
+from .outlook_token import OutlookToken
 
 
 class OutlookService:
-    def __init__(
-        self,
-        token: Token = None
-    ):
+    def __init__(self, token: Token = None, db: requests.Session = None):
         self.scopes = "openid profile email User.Read Mail.Send Mail.ReadWrite Calendars.ReadWrite offline_access"
+        self.client = None
         if token:
-            self.token = token
-            self.validate_token()
-        
+            self.token = OutlookToken(token, db)
+            self.client = GraphServiceClient(credentials=self.token)
 
     def authorize_url(self, state: str = None, code_challenge: str = None):
         encoded_scopes = urllib.parse.quote(self.scopes, safe="")
@@ -44,46 +51,74 @@ class OutlookService:
         response = requests.post(url, data=data, headers=headers)
         return response.json()
 
-    def refresh_token(self):
-        url = f"https://login.microsoftonline.com/{MSFT_TENANT_ID}/oauth2/v2.0/token"
-        data = {
-            "grant_type": "refresh_token",
-            "refresh_token": self.token.refresh_token,
-            "client_id": MSFT_CLIENT_ID,
-            "client_secret": MSFT_CLIENT_SECRET,
-            "scope": self.scopes,
-            "redirect_uri": MSFT_REDIRECT_URI,
-        }
-        headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        response = requests.post(url, data=data, headers=headers)
-        return response.json()
+    async def get_user_info(self, token: str = None):
+        if token:
+            url = f"https://graph.microsoft.com/v1.0/me"
+            headers = {
+                "Authorization": f"Bearer {token}",
+            }
+            response = requests.get(url, headers=headers)
+            return response.json()
+        elif self.client:
+            response = await self.client.me.get()
+            return response
 
-    def _update_token(self, session: Session = get_db):
+    async def list_messages(self, after_datetime_str: str):
         try:
-            with session as db:
-                token_response = self.refresh_token()
-                self.token.token = token_response["access_token"]
-                self.token.refresh_token = token_response["refresh_token"]
-                self.token.updated_at = datetime.utcnow()
-                db.commit()
+            select_params = [
+                "id",
+                "createdDateTime",
+                "sender",
+                "toRecipients",
+                "subject",
+                "ccRecipients",
+                "isRead",
+                "body",
+                "receivedDateTime",
+            ]
+
+            # Initialize query parameters
+            query_params = MessagesRequestBuilder.MessagesRequestBuilderGetQueryParameters(
+                select=select_params
+            )
+
+            # Only add filter if after_datetime_str is provided
+            if after_datetime_str:
+                query_params.filter = f"receivedDateTime gt {after_datetime_str}"
+
+            request_configuration = RequestConfiguration(query_parameters=query_params)
+            result = await self.client.me.messages.get(request_configuration=request_configuration)
+            return result.value
         except Exception as e:
-            print(f"Error refreshing token: {self.token.id}", e)
-            raise e
+            print("Error listing messages: ", e)
+            return []
 
-
-    def get_user_info(self, token: str):
-        url = f"https://graph.microsoft.com/v1.0/me"
-        headers = {
-            "Authorization": f"Bearer {token}",
-        }
-        response = requests.get(url, headers=headers)
-        return response.json()
-
-
-    def validate_token(self):
+    async def mark_as_read(self, message_id: str):
         try:
-            self.get_user_info(self.token.token)
+            await self.client.me.messages.by_message_id(message_id).patch({"isRead": True})
         except Exception as e:
-            print("Refreshing token")
-            self._update_token()
-            
+            print("Error marking message as read: ", e.__dict__)
+            return False
+
+    async def mark_as_unread(self, message_id: str):
+        try:
+            await self.client.me.messages.by_message_id(message_id).patch({"isRead": False})
+        except Exception as e:
+            print("Error marking message as unread: ", e.__dict__)
+            return False
+
+    async def archive(self, message_id: str):
+        try:
+            request_body = {"destinationId": "Archive"}
+            await self.client.me.messages.by_message_id(message_id).move(request_body)
+        except Exception as e:
+            print("Error archiving message: ", e.__dict__)
+            return False
+
+    async def delete(self, message_id: str):
+        try:
+            request_body = {"destinationId": "deleteditems"}
+            await self.client.me.messages.by_message_id(message_id).move(request_body)
+        except Exception as e:
+            print("Error deleting message: ", e.__dict__)
+            return False

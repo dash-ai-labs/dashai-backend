@@ -1,8 +1,10 @@
 from typing import Optional
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from src.database.db import get_db
+
 from src.database import User
+from src.database.db import get_db
 from src.database.vectory_db import VectorDB
 from src.routes.middleware import get_user_id
 

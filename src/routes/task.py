@@ -1,18 +1,17 @@
+import json
 from datetime import datetime
 from enum import Enum
-import json
 
+import openai
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from sqlalchemy.orm import Session
 
+from src.database.db import get_db
 from src.database.email import Email
 from src.database.email_account import EmailAccount
 from src.database.task import EmailTask, TaskStatus
-from src.database.db import get_db
 from src.libs.const import OPENAI_API_KEY
 from src.routes.middleware import get_user_id
-from sqlalchemy.orm import Session
-
-import openai
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 router = APIRouter()

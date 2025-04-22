@@ -47,7 +47,6 @@ class AbstractMessage(ABC):
     def get_cc(self):
         pass
 
-    @abstractmethod
     def get_label_ids(self):
         pass
 
@@ -67,7 +66,6 @@ class AbstractMessage(ABC):
     def get_raw_content(self):
         pass
 
-    @abstractmethod
     def get_thread_id(self):
         pass
 
@@ -75,7 +73,6 @@ class AbstractMessage(ABC):
     def get_email_id(self):
         pass
 
-    @abstractmethod
     def get_snippet(self):
         pass
 

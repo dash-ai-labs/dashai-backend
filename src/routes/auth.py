@@ -65,8 +65,8 @@ async def outlook_callback(callback: Callback):
         code_verifier = None
     outlook_service = OutlookService()
     token_data = outlook_service.exchange_code(code, code_verifier)
-    user_info = outlook_service.get_user_info(token_data["access_token"])
-    
+    user_info = await outlook_service.get_user_info(token=token_data["access_token"])
+
     with get_db() as db:
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()
@@ -82,24 +82,36 @@ async def outlook_callback(callback: Callback):
         email_account = EmailAccount.get_or_create_email_account(
             db, EmailProvider.OUTLOOK, user, user_info["mail"]
         )
-
+        expires_at = datetime.utcnow() + timedelta(seconds=token_data["expires_in"])
         # Email account is not synced yet and no token found
         if not email_account.token and not email_account.last_sync:
             oauth_token = Token.get_or_create_token(
-                db, email_account.id, token_data["access_token"], token_data["refresh_token"]
+                db,
+                email_account.id,
+                token_data["access_token"],
+                token_data["refresh_token"],
+                expires_at,
             )
             email_account.token = oauth_token
 
             user.email_accounts.append(email_account)
+
             db.add(oauth_token)
+        else:
+            token = email_account.token
+            token.token = token_data["access_token"]
+            token.refresh_token = token_data["refresh_token"]
+            token.expires_at = expires_at
+            db.add(token)
 
         db.add_all([user, email_account])
         db.commit()
 
-        # ingest_email.delay(email_account_id=email_account.id)
+        ingest_email.delay(email_account_id=email_account.id)
 
         user.last_login = datetime.utcnow()
         token = create_jwt_token({"sub": str(user.id)})
+
         response = Response(
             content=json.dumps(
                 {

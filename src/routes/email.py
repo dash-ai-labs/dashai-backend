@@ -3,7 +3,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
-from sqlalchemy import and_, desc
 
 from src.database import Email, EmailAccount, EmailData, EmailLabel, VectorDB, get_db
 from src.routes.middleware import get_user_id
@@ -31,12 +30,12 @@ async def get_emails(
     request: Request,
     user_id: str,
     account: str = Query(default=""),
-    filter: Optional[str] = Query(default="INBOX"),
+    filter_is_read: Optional[bool] = Query(default=None, alias="filter[is_read]"),
     limit: int = Query(default=30),
     page: int = Query(default=1),
     user=Depends(get_user_id),
-):
-    labels = filter.split(",")
+):  # -> dict[str, Any]:
+
     if user_id == user.get("user_id"):
         with get_db() as db:
             if account:
@@ -49,22 +48,20 @@ async def get_emails(
                     raise HTTPException(status_code=404, detail="Email account not found")
 
                 # Get total count for pagination
-                total_count = (
-                    db.query(Email)
-                    .filter(
-                        Email.email_account_id == email_account.id,
-                        and_(*(Email.labels.any(label) for label in labels)),
-                    )
-                    .count()
-                )
+                query = db.query(Email).filter(Email.email_account_id == email_account.id)
 
-                emails: list[Email] = (
-                    db.query(Email)
-                    .filter(
-                        Email.email_account_id == email_account.id,
-                        and_(*(Email.labels.any(label) for label in labels)),
-                    )
-                    .order_by(desc(Email.date))
+                if filter_is_read is not None:
+                    query = query.filter(Email.is_read == filter_is_read)
+
+                total_count = query.count()
+
+                email_query = db.query(Email).filter(Email.email_account_id == email_account.id)
+
+                if filter_is_read is not None:
+                    email_query = email_query.filter(Email.is_read == filter_is_read)
+
+                emails = (
+                    email_query.order_by(Email.date.desc())
                     .limit(limit)
                     .offset((page - 1) * limit)
                     .all()
@@ -78,22 +75,20 @@ async def get_emails(
                 ]
 
                 # Get total count for pagination
-                total_count = (
-                    db.query(Email)
-                    .filter(
-                        Email.email_account_id.in_(email_account_ids),
-                        and_(*(Email.labels.any(label) for label in labels)),
-                    )
-                    .count()
-                )
+                query = db.query(Email).filter(Email.email_account_id.in_(email_account_ids))
+
+                if filter_is_read is not None:
+                    query = query.filter(Email.is_read == filter_is_read)
+
+                total_count = query.count()
+
+                email_query = db.query(Email).filter(Email.email_account_id.in_(email_account_ids))
+
+                if filter_is_read is not None:
+                    email_query = email_query.filter(Email.is_read == filter_is_read)
 
                 emails: list[Email] = (
-                    db.query(Email)
-                    .filter(
-                        Email.email_account_id.in_(email_account_ids),
-                        and_(*(Email.labels.any(label) for label in labels)),
-                    )
-                    .order_by(Email.date.desc())
+                    email_query.order_by(Email.date.desc())
                     .limit(limit)
                     .offset((page - 1) * limit)
                     .all()
@@ -144,13 +139,13 @@ async def modify_email(
             email = db.query(Email).filter(Email.email_id == email_id).first()
             if email and str(email.email_account.user_id) == user_id:
                 if action == ActionType.read:
-                    e = email.mark_as_read()
+                    e = await email.mark_as_read(db)
                 elif action == ActionType.unread:
-                    e = email.mark_as_unread()
+                    e = await email.mark_as_unread(db)
                 elif action == ActionType.archive:
-                    e = email.archive()
+                    e = await email.archive(db)
                 elif action == ActionType.delete:
-                    e = email.delete()
+                    e = await email.delete(db)
                 e = e.sync_from_web(db)
                 return e.to_dict()
             else:
