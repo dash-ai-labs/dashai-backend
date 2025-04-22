@@ -146,7 +146,7 @@ async def modify_email(
                     e = await email.archive(db)
                 elif action == ActionType.delete:
                     e = await email.delete(db)
-                e = e.sync_from_web(db)
+                e = await e.sync_from_web(db)
                 return e.to_dict()
             else:
                 raise HTTPException(status_code=404, detail="Email not found")

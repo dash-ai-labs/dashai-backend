@@ -184,7 +184,7 @@ class Email(Base):
         sanitized_html = soup.prettify()
         return sanitized_html
 
-    def sync_from_web(self, db: Session):
+    async def sync_from_web(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             full_message = gmail_service.get_message(message_id=self.email_id)
@@ -201,7 +201,21 @@ class Email(Base):
             self.snippet = message.get_snippet()
             self.raw_content = message.get_raw_content()
             self.thread_id = message.get_thread_id()
-
+            self.is_read = message.get_is_read()
+        elif self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            full_message = await outlook_service.get_message(message_id=self.email_id)
+            message = OutlookMessage(full_message)
+            self.sender = message.get_from()
+            self.sender_name = message.get_from_name()
+            self.to = message.get_to()
+            self.cc = message.get_cc()
+            self.labels = message.get_label_ids()
+            self.subject = message.get_subject()
+            self.date = message.get_date()
+            self.content = message.get_content()
+            self.raw_content = message.get_raw_content()
+            self.is_read = message.get_is_read()
         db.add(self)
         db.commit()
         return self

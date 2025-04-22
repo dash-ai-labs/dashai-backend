@@ -34,25 +34,17 @@ class Message(AbstractMessage):
         self._message_dict = message_dict
 
     def get_from(self):
-        return self._split_emails(
-            email_lst=self.get_header_field_from_message(field="From")
-        )
+        return self._split_emails(email_lst=self.get_header_field_from_message(field="From"))
 
     def get_from_name(self):
-        email_lst = self._split_names(
-            email_list=self.get_header_field_from_message(field="From")
-        )
+        email_lst = self._split_names(email_list=self.get_header_field_from_message(field="From"))
         return email_lst
 
     def get_to(self):
-        return self._split_emails(
-            email_lst=self.get_header_field_from_message(field="To")
-        )
+        return self._split_emails(email_lst=self.get_header_field_from_message(field="To"))
 
     def get_cc(self):
-        return self._split_emails(
-            email_lst=self.get_header_field_from_message(field="Cc")
-        )
+        return self._split_emails(email_lst=self.get_header_field_from_message(field="Cc"))
 
     def get_label_ids(self):
         if "labelIds" in self._message_dict.keys():
@@ -72,23 +64,15 @@ class Message(AbstractMessage):
 
     def get_content(self):
         if "parts" in self._message_dict["payload"].keys():
-            return self._get_parts_content(
-                message_parts=self._message_dict["payload"]["parts"]
-            )
+            return self._get_parts_content(message_parts=self._message_dict["payload"]["parts"])
         else:
-            return self._get_parts_content(
-                message_parts=[self._message_dict["payload"]]
-            )
+            return self._get_parts_content(message_parts=[self._message_dict["payload"]])
 
     def get_raw_content(self):
         if "parts" in self._message_dict["payload"].keys():
-            return self._get_raw_parts_content(
-                message_parts=self._message_dict["payload"]["parts"]
-            )
+            return self._get_raw_parts_content(message_parts=self._message_dict["payload"]["parts"])
         else:
-            return self._get_raw_parts_content(
-                message_parts=[self._message_dict["payload"]]
-            )
+            return self._get_raw_parts_content(message_parts=[self._message_dict["payload"]])
 
     def get_thread_id(self):
         return self._message_dict["threadId"]
@@ -122,13 +106,9 @@ class Message(AbstractMessage):
             )
 
         elif "multipart/alternative" in content_types:
-            multi_part_content = message_parts[
-                content_types.index("multipart/alternative")
-            ]
+            multi_part_content = message_parts[content_types.index("multipart/alternative")]
             if "parts" in multi_part_content:
-                return self._get_raw_parts_content(
-                    message_parts=multi_part_content["parts"]
-                )
+                return self._get_raw_parts_content(message_parts=multi_part_content["parts"])
             else:
                 return None
         else:
@@ -148,24 +128,16 @@ class Message(AbstractMessage):
                 )
             )
         elif "multipart/alternative" in content_types:
-            multi_part_content = message_parts[
-                content_types.index("multipart/alternative")
-            ]
+            multi_part_content = message_parts[content_types.index("multipart/alternative")]
             if "parts" in multi_part_content:
-                return self._get_parts_content(
-                    message_parts=multi_part_content["parts"]
-                )
+                return self._get_parts_content(message_parts=multi_part_content["parts"])
             else:
                 return None
         else:
-            content = clean_up_text(
-                self._get_raw_parts_content(message_parts=message_parts)
-            )
+            content = clean_up_text(self._get_raw_parts_content(message_parts=message_parts))
 
         if not content:
-            content = clean_up_text(
-                self._get_raw_parts_content(message_parts=message_parts)
-            )
+            content = clean_up_text(self._get_raw_parts_content(message_parts=message_parts))
         return content
 
     def _split_emails(self, email_lst):
@@ -183,11 +155,7 @@ class Message(AbstractMessage):
     def _split_names(self, email_list):
         if email_list is not None:
             email_split_lst = email_list.split(", ")
-            names = [
-                self._get_email_name(email=email)
-                for email in email_split_lst
-                if "@" in email
-            ]
+            names = [self._get_email_name(email=email) for email in email_split_lst if "@" in email]
             return [name for name in names if name is not None]
         else:
             return []
@@ -224,3 +192,6 @@ class Message(AbstractMessage):
             return email.lower()
         else:
             return email_split[1].split(">")[0].lower()
+
+    def get_is_read(self):
+        return "UNREAD" not in self._message_dict["labelIds"]

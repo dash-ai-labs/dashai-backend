@@ -1,4 +1,3 @@
-import asyncio
 import urllib.parse
 
 import requests
@@ -6,6 +5,7 @@ from kiota_abstractions.base_request_configuration import RequestConfiguration
 from msgraph.generated.users.item.messages.messages_request_builder import (
     MessagesRequestBuilder,
 )
+from msgraph.generated.models.message import Message
 from msgraph.graph_service_client import GraphServiceClient
 
 from src.database.token import Token
@@ -93,32 +93,45 @@ class OutlookService:
             print("Error listing messages: ", e)
             return []
 
+    async def get_message(self, message_id: str):
+        try:
+            return await self.client.me.messages.by_message_id(message_id).get()
+        except Exception as e:
+            print("Error getting message: ", e)
+            return None
+
     async def mark_as_read(self, message_id: str):
         try:
-            await self.client.me.messages.by_message_id(message_id).patch({"isRead": True})
+            msg_update = Message()
+            msg_update.is_read = True
+            await self.client.me.messages.by_message_id(message_id).patch(msg_update)
         except Exception as e:
-            print("Error marking message as read: ", e.__dict__)
+            print("Error marking message as read: ", e)
             return False
 
     async def mark_as_unread(self, message_id: str):
         try:
-            await self.client.me.messages.by_message_id(message_id).patch({"isRead": False})
+            msg_update = Message()
+            msg_update.is_read = False
+            await self.client.me.messages.by_message_id(message_id).patch(msg_update)
         except Exception as e:
-            print("Error marking message as unread: ", e.__dict__)
+            print("Error marking message as unread: ", e)
             return False
 
     async def archive(self, message_id: str):
         try:
-            request_body = {"destinationId": "Archive"}
-            await self.client.me.messages.by_message_id(message_id).move(request_body)
+            msg_update = Message()
+            msg_update.destination_id = "Archive"
+            await self.client.me.messages.by_message_id(message_id).move(msg_update)
         except Exception as e:
-            print("Error archiving message: ", e.__dict__)
+            print("Error archiving message: ", e)
             return False
 
     async def delete(self, message_id: str):
         try:
-            request_body = {"destinationId": "deleteditems"}
-            await self.client.me.messages.by_message_id(message_id).move(request_body)
+            msg_update = Message()
+            msg_update.destination_id = "deleteditems"
+            await self.client.me.messages.by_message_id(message_id).move(msg_update)
         except Exception as e:
-            print("Error deleting message: ", e.__dict__)
+            print("Error deleting message: ", e)
             return False

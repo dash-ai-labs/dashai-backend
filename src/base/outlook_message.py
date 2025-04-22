@@ -33,3 +33,6 @@ class OutlookMessage(AbstractMessage):
 
     def get_email_id(self):
         return self.message.id
+
+    def get_is_read(self):
+        return self.message.is_read
