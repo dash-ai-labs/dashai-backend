@@ -1,10 +1,10 @@
 import uuid
-
 from datetime import datetime
-from sqlalchemy import UUID, Column, DateTime, ForeignKey, String, JSON
 from enum import Enum as PyEnum
+
+from sqlalchemy import UUID, Column, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel
+
 from src.database.db import Base
 
 

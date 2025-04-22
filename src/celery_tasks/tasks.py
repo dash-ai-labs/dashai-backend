@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Set
@@ -8,10 +9,12 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from src.base import Message
+from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
-from src.database.email_account import EmailAccountStatus
+from src.database.email_account import EmailAccountStatus, EmailProvider
 from src.libs.text_utils import summarize_text
 from src.services import GmailService
+from src.services.outlook_service import OutlookService
 
 MINUTES = 60 * 24
 BACKFILL_DAYS = 3
@@ -110,8 +113,10 @@ def _calculate_sync_date(email_account: EmailAccount) -> str:
     else:
         # For first-time sync, go back BACKFILL_DAYS
         from_date = datetime.now() - timedelta(days=BACKFILL_DAYS)
-
-    return from_date.strftime("%Y/%m/%d")
+    if email_account.provider == EmailProvider.OUTLOOK:
+        return from_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        return from_date.strftime("%Y/%m/%d")
 
 
 def _process_email_account(db: Session, email_account: EmailAccount, from_date: str):
@@ -125,28 +130,41 @@ def _process_email_account(db: Session, email_account: EmailAccount, from_date: 
     """
     # Validate and fetch token
     token = _validate_token(email_account)
+    if email_account.provider == EmailProvider.GMAIL:
+        # Initialize Gmail service
+        gmail_service = GmailService(token=token)
 
-    # Initialize Gmail service
-    gmail_service = GmailService(token=token)
+        # Fetch message IDs
+        messages = gmail_service.list_messages(q=f"after:{from_date}")
+        if len(messages) > 0:
+            message_ids = [message["id"] for message in messages]
 
-    # Fetch message IDs
-    messages = gmail_service.list_messages(q=f"after:{from_date}")
-    if len(messages) > 0:
-        message_ids = [message["id"] for message in messages]
+            # Check for existing messages
+            existing_messages = _get_existing_messages(db, message_ids)
 
-        # Check for existing messages
-        existing_messages = _get_existing_messages(db, message_ids)
+            # Identify new messages
+            new_message_ids = set(message_ids) - existing_messages
 
-        # Identify new messages
-        new_message_ids = set(message_ids) - existing_messages
+            # Process and insert new emails in chunks
+            _insert_new_emails(db, gmail_service, email_account, new_message_ids)
 
-        # Process and insert new emails in chunks
-        _insert_new_emails(db, gmail_service, email_account, new_message_ids)
+            # Update last sync time and trigger email embedding
+            _finalize_account_sync(db, email_account, new_message_ids)
+        else:
+            logger.info(f"No new emails found for {email_account.id}")
 
-        # Update last sync time and trigger email embedding
-        _finalize_account_sync(db, email_account, new_message_ids)
-    else:
-        logger.info(f"No new emails found for {email_account.id}")
+    elif email_account.provider == EmailProvider.OUTLOOK:
+        outlook_service = OutlookService(token=token, db=db)
+        messages = asyncio.run(outlook_service.list_messages(from_date))
+        if len(messages) > 0:
+            message_ids = [message.id for message in messages]
+            existing_messages = _get_existing_messages(db, message_ids)
+            new_message_ids = set(message_ids) - existing_messages
+            new_messages = [message for message in messages if message.id not in existing_messages]
+            _insert_new_outlook_emails(db, email_account, new_messages)
+            _finalize_account_sync(db, email_account, new_message_ids)
+        else:
+            logger.info(f"No new emails found for {email_account.id}")
 
 
 def _validate_token(email_account: EmailAccount) -> Token:
@@ -219,6 +237,39 @@ def _insert_new_emails(
             )
 
     # Commit any remaining emails
+    if emails_created:
+        _commit_emails(db, emails_created)
+
+
+def _insert_new_outlook_emails(
+    db: Session,
+    email_account: EmailAccount,
+    new_messages: list[OutlookMessage],
+):
+    """
+    Insert new Outlook emails in chunks.
+
+    Args:
+        db (Session): Database session
+        email_account (EmailAccount): Email account being processed
+        new_messages (List[any]): List of new messages to process
+    """
+    emails_created: List[Email] = []
+    for message in new_messages:
+        try:
+            emails_created.append(
+                Email(email_account=email_account, message=OutlookMessage(message))
+            )
+            # Commit in chunks
+            if len(emails_created) >= CHUNK_SIZE:
+                _commit_emails(db, emails_created)
+                emails_created = []
+        except Exception as e:
+            logger.warning(
+                f"Failed to process message {message.id} for account {email_account.id}: {e}",
+                exc_info=True,
+            )
+
     if emails_created:
         _commit_emails(db, emails_created)
 

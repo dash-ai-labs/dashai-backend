@@ -16,15 +16,24 @@ class Token(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"))
     email_account = relationship("EmailAccount", back_populates="token")
+    expires_at = Column(DateTime, nullable=True)
 
     @classmethod
     def get_or_create_token(
-        cls, db: Session, email_account_id: UUID, token: str, refresh_token: str
+        cls,
+        db: Session,
+        email_account_id: UUID,
+        token: str,
+        refresh_token: str,
+        expires_at: datetime,
     ):
         token_obj = db.query(cls).filter(cls.email_account_id == email_account_id).first()
         if not token_obj:
             new_token = cls(
-                email_account_id=email_account_id, token=token, refresh_token=refresh_token
+                email_account_id=email_account_id,
+                token=token,
+                refresh_token=refresh_token,
+                expires_at=expires_at,
             )
             db.add(new_token)
             db.commit()
@@ -32,5 +41,6 @@ class Token(Base):
         else:
             token_obj.token = token
             token_obj.refresh_token = refresh_token
+            token_obj.expires_at = expires_at
             db.commit()
             return token_obj
