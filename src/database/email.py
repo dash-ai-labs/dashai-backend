@@ -20,12 +20,14 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, class_mapper, relationship
 
 from src.base import Message
+from src.base.outlook_message import OutlookMessage
 from src.database.association_table import email_lable_association_table
 from src.database.db import Base
 from src.database.email_account import EmailAccount, EmailProvider
 from src.database.vectory_db import VectorDB
 from src.libs.rag_utils import clean_up_text
 from src.services.gmail_service import GmailService
+from src.services.outlook_service import OutlookService
 
 pinecone = VectorDB()
 
@@ -51,6 +53,7 @@ class Email(Base):
     snippet = Column(String, nullable=True)
     raw_content = Column(UnicodeText, nullable=True)
     thread_id = Column(String, nullable=True)
+    is_read = Column(Boolean, default=False)
     labels = Column(ARRAY(String))
     email_id = Column(String)
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"))
@@ -63,20 +66,32 @@ class Email(Base):
         UniqueConstraint("email_account_id", "email_id", name="unique_email_account_id_email_id"),
     )
 
-    def __init__(self, email_account: EmailAccount, message: Message):
-        self.sender = message.get_from()
-        self.sender_name = message.get_from_name()
-        self.to = message.get_to()
-        self.cc = message.get_cc()
-        self.labels = message.get_label_ids()
-        self.subject = message.get_subject()
-        self.date = message.get_date()
-        self.content = message.get_content()
-        self.email_id = message.get_email_id()
-        self.snippet = message.get_snippet()
-        self.raw_content = message.get_raw_content()
-        self.thread_id = message.get_thread_id()
-        self.email_account_id = email_account.id
+    def __init__(self, email_account: EmailAccount, message: Message | OutlookMessage):
+        if isinstance(message, Message):
+            self.sender = message.get_from()
+            self.sender_name = message.get_from_name()
+            self.to = message.get_to()
+            self.cc = message.get_cc()
+            self.labels = message.get_label_ids()
+            self.subject = message.get_subject()
+            self.date = message.get_date()
+            self.content = message.get_content()
+            self.email_id = message.get_email_id()
+            self.snippet = message.get_snippet()
+            self.raw_content = message.get_raw_content()
+            self.thread_id = message.get_thread_id()
+            self.email_account_id = email_account.id
+        elif isinstance(message, OutlookMessage):
+            self.sender = message.get_from()
+            self.sender_name = message.get_from_name()
+            self.to = message.get_to()
+            self.cc = message.get_cc()
+            self.subject = message.get_subject()
+            self.date = message.get_date()
+            self.content = message.get_content()
+            self.email_id = message.get_email_id()
+            self.raw_content = message.get_raw_content()
+            self.email_account_id = email_account.id
 
         return self
 
@@ -95,6 +110,7 @@ class Email(Base):
             "labels",
             "email_id",
             "email_labels",
+            "is_read",
         ],
     ):
 
@@ -168,7 +184,7 @@ class Email(Base):
         sanitized_html = soup.prettify()
         return sanitized_html
 
-    def sync_from_web(self, db: Session):
+    async def sync_from_web(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             full_message = gmail_service.get_message(message_id=self.email_id)
@@ -185,32 +201,65 @@ class Email(Base):
             self.snippet = message.get_snippet()
             self.raw_content = message.get_raw_content()
             self.thread_id = message.get_thread_id()
+            self.is_read = message.get_is_read()
+        elif self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            full_message = await outlook_service.get_message(message_id=self.email_id)
+            message = OutlookMessage(full_message)
+            self.sender = message.get_from()
+            self.sender_name = message.get_from_name()
+            self.to = message.get_to()
+            self.cc = message.get_cc()
+            self.labels = message.get_label_ids()
+            self.subject = message.get_subject()
+            self.date = message.get_date()
+            self.content = message.get_content()
+            self.raw_content = message.get_raw_content()
+            self.is_read = message.get_is_read()
         db.add(self)
         db.commit()
         return self
 
-    def mark_as_read(self):
+    async def mark_as_read(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             gmail_service.modify_labels(message_id=self.email_id, remove_labels=["UNREAD"])
-            return self
+        if self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            await outlook_service.mark_as_read(self.email_id)
+        self.is_read = True
+        db.commit()
+        return self
 
-    def mark_as_unread(self):
+    async def mark_as_unread(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             gmail_service.modify_labels(message_id=self.email_id, add_labels=["UNREAD"])
-            return self
+        if self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            await outlook_service.mark_as_unread(self.email_id)
+        self.is_read = False
+        db.commit()
+        return self
 
-    def archive(self):
+    async def archive(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             gmail_service.modify_labels(message_id=self.email_id, remove_labels=["INBOX"])
             return self
+        if self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            await outlook_service.archive(self.email_id)
+            return self
 
-    def delete(self):
+    async def delete(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             gmail_service.modify_labels(message_id=self.email_id, add_labels=["TRASH"])
+            return self
+        if self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            await outlook_service.delete(self.email_id)
             return self
 
     def chunk_text_stream(self, text, max_chunk_length=4000, overlap=100):
@@ -250,7 +299,7 @@ class Email(Base):
                 doc_id=self.email_id,
                 text=chunk,
                 metadata={
-                    "thread": self.thread_id,
+                    "thread": self.thread_id if self.thread_id else "",
                     "sender": " ".join(self.sender) if self.sender else "",
                     "to": " ".join(self.to),
                     "cc": " ".join(self.cc),

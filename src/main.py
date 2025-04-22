@@ -8,10 +8,10 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from src.libs.const import STAGE
 from src.routes import (
     auth_router,
+    compose_router,
     email_router,
     label_router,
     proxy_router,
-    compose_router,
     task_router,
 )
 
