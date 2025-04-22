@@ -247,8 +247,8 @@ async def get_email_accounts(request: Request, user_id: str, user=Depends(get_us
             return [email_account.to_dict() for email_account in email_accounts]
 
 
-@router.post("/user/{user_id}/email_accounts/register")
-async def register_email_account(request: Request, user_id: str, user=Depends(get_user_id)):
+@router.post("/user/{user_id}/email_accounts/register_google")
+async def register_google_account(request: Request, user_id: str, user=Depends(get_user_id)):
     if user_id == user.get("user_id"):
         # Generate code verifier
         code_verifier = secrets.token_urlsafe(32)
@@ -271,6 +271,25 @@ async def register_email_account(request: Request, user_id: str, user=Depends(ge
             code_challenge_method="S256",  # Use SHA256 for code challenge
         )
         return {"url": url}
+
+
+@router.post("/user/{user_id}/email_accounts/register_outlook")
+async def register_outlook_account(request: Request, user_id: str, user=Depends(get_user_id)):
+    if user_id == user.get("user_id"):
+        outlook_service = OutlookService()
+        # Generate code verifier
+        code_verifier = secrets.token_urlsafe(32)
+        # Generate code challenge
+        code_challenge = (
+            base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
+            .decode()
+            .rstrip("=")
+        )
+        state = base64.urlsafe_b64encode(
+            json.dumps({"code_verifier": code_verifier, "user_id": user_id}).encode()
+        ).decode()
+
+        return {"url": outlook_service.authorize_url(state=state, code_challenge=code_challenge)}
 
 
 @router.get("/user/{user_id}/profile")

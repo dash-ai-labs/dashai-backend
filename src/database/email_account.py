@@ -3,26 +3,16 @@ import uuid
 from datetime import datetime
 from email.message import EmailMessage
 from enum import Enum as PyEnum
-from typing import List
 
 from fastapi import HTTPException
-from pydantic import BaseModel
 from sqlalchemy import UUID, Column, DateTime, Enum, ForeignKey, String
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, relationship
 
 from src.database.db import Base
+from src.libs.types import EmailData
 from src.services.gmail_service import GmailService
-
-
-class EmailData(BaseModel):
-    from_addr: str
-    to: List[str]
-    cc: List[str]
-    bcc: List[str]
-    subject: str
-    body: str
-    attachments: List[str]
+from src.services.outlook_service import OutlookService
 
 
 class EmailAccountStatus(str, PyEnum):
@@ -35,6 +25,7 @@ class EmailAccountStatus(str, PyEnum):
 class EmailProvider(str, PyEnum):
     GMAIL = "GMAIL"
     OUTLOOK = "OUTLOOK"
+
 
 class EmailAccount(Base):
     __tablename__ = "email_accounts"
@@ -66,25 +57,32 @@ class EmailAccount(Base):
             "created_at": self.created_at,
         }
 
-    def send_email(self, email: EmailData):
-        gmail_service = GmailService(self.token)
-        message = EmailMessage()
-        message["From"] = email.from_addr
-        message["To"] = email.to
-        message["Subject"] = email.subject
-        message["Cc"] = email.cc
-        message["Bcc"] = email.bcc
-        message.add_header("Content-Type", "text/html")
-        message.set_payload(email.body)
+    async def send_email(self, email: EmailData, db: Session):
+        if self.provider == EmailProvider.GMAIL:
+            gmail_service = GmailService(self.token)
+            message = EmailMessage()
+            message["From"] = email.from_addr
+            message["To"] = email.to
+            message["Subject"] = email.subject
+            message["Cc"] = email.cc
+            message["Bcc"] = email.bcc
+            message.add_header("Content-Type", "text/html")
+            message.set_payload(email.body)
 
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        create_message = {"raw": encoded_message}
-        try:
-            gmail_service.send_message(create_message)
+            encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            create_message = {"raw": encoded_message}
+            try:
+                gmail_service.send_message(create_message)
+                return True
+            except Exception as e:
+                print(e)
+                raise HTTPException(status_code=500, detail="Failed to send email")
+        elif self.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.token, db)
+            await outlook_service.send_email(email)
             return True
-        except Exception as e:
-            print(e)
-            raise HTTPException(status_code=500, detail="Failed to send email")
+        else:
+            raise HTTPException(status_code=400, detail="Invalid email provider")
 
     @classmethod
     def get_or_create_email_account(cls, db: Session, provider: EmailProvider, user, email):

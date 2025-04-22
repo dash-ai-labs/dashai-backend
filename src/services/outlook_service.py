@@ -1,13 +1,24 @@
 import urllib.parse
 
 import requests
+
+from fastapi import HTTPException
 from kiota_abstractions.base_request_configuration import RequestConfiguration
 from msgraph.generated.users.item.messages.messages_request_builder import (
     MessagesRequestBuilder,
 )
 from msgraph.generated.models.message import Message
 from msgraph.graph_service_client import GraphServiceClient
+from msgraph.generated.users.item.send_mail.send_mail_post_request_body import (
+    SendMailPostRequestBody,
+)
+from msgraph.generated.models.message import Message
+from msgraph.generated.models.item_body import ItemBody
+from msgraph.generated.models.body_type import BodyType
+from msgraph.generated.models.recipient import Recipient
+from msgraph.generated.models.email_address import EmailAddress
 
+from src.libs.types import EmailData
 from src.database.token import Token
 from src.libs.const import (
     MSFT_CLIENT_ID,
@@ -135,3 +146,19 @@ class OutlookService:
         except Exception as e:
             print("Error deleting message: ", e)
             return False
+
+    async def send_email(self, email: EmailData):
+        try:
+            request_body = SendMailPostRequestBody(
+                message=Message(
+                    subject=email.subject,
+                    body=ItemBody(content=email.body, content_type=BodyType.Html),
+                    to_recipients=[
+                        Recipient(email_address=EmailAddress(address=to)) for to in email.to
+                    ],
+                )
+            )
+            await self.client.me.send_mail.post(request_body)
+        except Exception as e:
+            print("Error sending email: ", e)
+            raise HTTPException(status_code=500, detail="Failed to send email")
