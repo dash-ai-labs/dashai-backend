@@ -103,11 +103,15 @@ async def get_emails(
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@router.get("/user/{user_id}/email/{email_id}")
-async def get_email(request: Request, user_id: str, email_id: str, user=Depends(get_user_id)):
+@router.get("/user/{user_id}/email")
+async def get_email(
+    request: Request, user_id: str, id: str = Query(...), user=Depends(get_user_id)
+):
     if user_id == user.get("user_id"):
         with get_db() as db:
-            email = db.query(Email).filter(Email.email_id == email_id).first()
+            email = db.query(Email).filter(Email.email_id == id).first()
+            if not email:
+                raise HTTPException(status_code=404, detail="Email not found")
             return email.to_dict()
     raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -181,7 +185,7 @@ async def send_email(
 
 
 @router.get("/user/{user_id}/email/chat")
-async def chat_email(
+async def chat_with_email(
     request: Request,
     user_id: str,
     query: str = Query(...),
