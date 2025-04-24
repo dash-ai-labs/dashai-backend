@@ -109,7 +109,7 @@ async def get_email(
 ):
     if user_id == user.get("user_id"):
         with get_db() as db:
-            email = db.query(Email).filter(Email.email_id == id).first()
+            email = db.query(Email).filter(Email.id == id).first()
             if not email:
                 raise HTTPException(status_code=404, detail="Email not found")
             return email.to_dict()

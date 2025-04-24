@@ -171,7 +171,6 @@ async def google_callback(callback: Callback):
     google_profile_service = GoogleProfileService(
         oauth_token=credentials.token, refresh_token=credentials.refresh_token
     )
-    print("Getting profile")
     user_info = google_profile_service.get_profile()
     with get_db() as db:
         if user_id:
@@ -192,7 +191,6 @@ async def google_callback(callback: Callback):
         email_account = EmailAccount.get_or_create_email_account(
             db, EmailProvider.GMAIL, user, user_info["email"]
         )
-        print("Email account created")
         # Email account is not synced yet and no token found
         if not email_account.token and not email_account.last_sync:
 
@@ -206,9 +204,7 @@ async def google_callback(callback: Callback):
 
         db.add_all([email_account, user])
         db.commit()
-        print("Ingesting email")
         ingest_email.delay(email_account_id=email_account.id)
-        print("Ingesting email done")
         user.last_login = datetime.utcnow()
 
         # Create JWT
