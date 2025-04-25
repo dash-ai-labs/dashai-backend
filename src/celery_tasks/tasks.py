@@ -13,6 +13,7 @@ from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
 from src.database.email_account import EmailAccountStatus, EmailProvider
 from src.libs.text_utils import summarize_text
+from src.libs.types import EmailFolder
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
 
@@ -119,6 +120,80 @@ def _calculate_sync_date(email_account: EmailAccount) -> str:
         return from_date.strftime("%Y/%m/%d")
 
 
+def _process_gmail_folder(
+    db: Session,
+    gmail_service: GmailService,
+    email_account: EmailAccount,
+    folder: EmailFolder,
+    from_date: str,
+) -> Set[str]:
+    """
+    Process emails for a specific Gmail folder.
+
+    Args:
+        db (Session): Database session
+        gmail_service (GmailService): Gmail service instance
+        email_account (EmailAccount): Email account being processed
+        folder (EmailFolder): The folder to process
+        from_date (str): Date string to fetch emails from
+
+    Returns:
+        Set[str]: Set of new message IDs processed
+    """
+    messages = gmail_service.list_messages(q=f"after:{from_date}", label_ids=[folder.value])
+    if len(messages) > 0:
+        message_ids = [message["id"] for message in messages]
+
+        # Check for existing messages
+        existing_messages = _get_existing_messages(db, message_ids)
+
+        # Identify new messages
+        new_message_ids = set(message_ids) - existing_messages
+
+        # Process and insert new emails in chunks
+        _insert_new_emails(db, gmail_service, email_account, new_message_ids, folder)
+    else:
+        logger.info(f"No new {folder.value} emails found for {email_account.id}")
+        return set()
+
+
+def _process_outlook_folder(
+    db: Session,
+    outlook_service: OutlookService,
+    email_account: EmailAccount,
+    folder: EmailFolder,
+    from_date: str,
+) -> Set[str]:
+    """
+    Process emails for a specific Outlook folder.
+
+    Args:
+        db (Session): Database session
+        outlook_service (OutlookService): Outlook service instance
+        email_account (EmailAccount): Email account being processed
+        folder (EmailFolder): The folder to process
+        from_date (str): Date string to fetch emails from
+
+    Returns:
+        Set[str]: Set of new message IDs processed
+    """
+    if folder == EmailFolder.INBOX:
+        messages = asyncio.run(outlook_service.list_messages(from_date))
+    else:
+        messages = asyncio.run(outlook_service.list_messages_for_folder(folder, from_date))
+
+    if len(messages) > 0:
+        message_ids = [message.id for message in messages]
+        existing_messages = _get_existing_messages(db, message_ids)
+        new_message_ids = set(message_ids) - existing_messages
+        new_messages = [message for message in messages if message.id not in existing_messages]
+        _insert_new_outlook_emails(db, email_account, new_messages, folder)
+        return new_message_ids
+    else:
+        logger.info(f"No new {folder.value} emails found for {email_account.id}")
+        return set()
+
+
 def _process_email_account(db: Session, email_account: EmailAccount, from_date: str):
     """
     Process emails for a specific email account.
@@ -135,36 +210,25 @@ def _process_email_account(db: Session, email_account: EmailAccount, from_date: 
         gmail_service = GmailService(token=token)
 
         # Fetch message IDs
-        messages = gmail_service.list_messages(q=f"after:{from_date}")
-        if len(messages) > 0:
-            message_ids = [message["id"] for message in messages]
-
-            # Check for existing messages
-            existing_messages = _get_existing_messages(db, message_ids)
-
-            # Identify new messages
-            new_message_ids = set(message_ids) - existing_messages
-
-            # Process and insert new emails in chunks
-            _insert_new_emails(db, gmail_service, email_account, new_message_ids)
-
-            # Update last sync time and trigger email embedding
-            _finalize_account_sync(db, email_account, new_message_ids)
-        else:
-            logger.info(f"No new emails found for {email_account.id}")
+        _process_gmail_folder(db, gmail_service, email_account, EmailFolder.INBOX, from_date)
+        _process_gmail_folder(db, gmail_service, email_account, EmailFolder.SENT, from_date)
+        _process_gmail_folder(db, gmail_service, email_account, EmailFolder.DRAFTS, from_date)
+        _process_gmail_folder(db, gmail_service, email_account, EmailFolder.TRASH, from_date)
+        _process_gmail_folder(db, gmail_service, email_account, EmailFolder.SPAM, from_date)
 
     elif email_account.provider == EmailProvider.OUTLOOK:
         outlook_service = OutlookService(token=token, db=db)
-        messages = asyncio.run(outlook_service.list_messages(from_date))
-        if len(messages) > 0:
-            message_ids = [message.id for message in messages]
-            existing_messages = _get_existing_messages(db, message_ids)
-            new_message_ids = set(message_ids) - existing_messages
-            new_messages = [message for message in messages if message.id not in existing_messages]
-            _insert_new_outlook_emails(db, email_account, new_messages)
-            _finalize_account_sync(db, email_account, new_message_ids)
-        else:
-            logger.info(f"No new emails found for {email_account.id}")
+
+        # Process different email folders
+        _process_outlook_folder(db, outlook_service, email_account, EmailFolder.INBOX, from_date)
+        _process_outlook_folder(db, outlook_service, email_account, EmailFolder.SENT, from_date)
+        _process_outlook_folder(db, outlook_service, email_account, EmailFolder.DRAFTS, from_date)
+
+        # Process remaining folders
+        _process_outlook_folder(db, outlook_service, email_account, EmailFolder.TRASH, from_date)
+        _process_outlook_folder(db, outlook_service, email_account, EmailFolder.SPAM, from_date)
+
+    _finalize_account_sync(db, email_account)
 
 
 def _validate_token(email_account: EmailAccount) -> Token:
@@ -208,6 +272,7 @@ def _insert_new_emails(
     gmail_service: GmailService,
     email_account: EmailAccount,
     new_message_ids: Set[str],
+    folder: EmailFolder,
 ):
     """
     Insert new emails in chunks.
@@ -223,7 +288,9 @@ def _insert_new_emails(
     for message_id in new_message_ids:
         try:
             email = gmail_service.get_message(message_id)
-            emails_created.append(Email(email_account=email_account, message=Message(email)))
+            emails_created.append(
+                Email(email_account=email_account, message=Message(email), folder=folder)
+            )
 
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
@@ -245,6 +312,7 @@ def _insert_new_outlook_emails(
     db: Session,
     email_account: EmailAccount,
     new_messages: list[OutlookMessage],
+    folder: EmailFolder,
 ):
     """
     Insert new Outlook emails in chunks.
@@ -258,7 +326,11 @@ def _insert_new_outlook_emails(
     for message in new_messages:
         try:
             emails_created.append(
-                Email(email_account=email_account, message=OutlookMessage(message))
+                Email(
+                    email_account=email_account,
+                    message=OutlookMessage(message),
+                    folder=folder,
+                )
             )
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
@@ -291,7 +363,7 @@ def _commit_emails(db: Session, emails: List[Email]):
         logger.error(f"Failed to commit emails: {commit_error}", exc_info=True)
 
 
-def _finalize_account_sync(db: Session, email_account: EmailAccount, new_message_ids: Set[str]):
+def _finalize_account_sync(db: Session, email_account: EmailAccount):
     """
     Finalize email account synchronization.
 
@@ -322,6 +394,13 @@ def embed_new_emails(user_id: str = None):
                 .filter(
                     Email.email_account.has(user_id=user_id),
                     Email.processed == False,
+                    Email.folder.notin_(
+                        [
+                            EmailFolder.TRASH.value,
+                            EmailFolder.SPAM.value,
+                            EmailFolder.DRAFTS.value,
+                        ]
+                    ),
                     Email.created_at >= one_week_ago,
                 )
                 .all()

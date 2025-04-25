@@ -26,6 +26,7 @@ from src.database.db import Base
 from src.database.email_account import EmailAccount, EmailProvider
 from src.database.vectory_db import VectorDB
 from src.libs.rag_utils import clean_up_text
+from src.libs.types import EmailFolder
 from src.services.gmail_service import GmailService
 from src.services.outlook_service import OutlookService
 
@@ -55,6 +56,7 @@ class Email(Base):
     thread_id = Column(String, nullable=True)
     is_read = Column(Boolean, default=False)
     labels = Column(ARRAY(String))
+    folder = Column(String, default=EmailFolder.INBOX.value, server_default=EmailFolder.INBOX.value)
     email_id = Column(String)
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"))
     email_account = relationship("EmailAccount", back_populates="emails")
@@ -66,7 +68,12 @@ class Email(Base):
         UniqueConstraint("email_account_id", "email_id", name="unique_email_account_id_email_id"),
     )
 
-    def __init__(self, email_account: EmailAccount, message: Message | OutlookMessage):
+    def __init__(
+        self,
+        email_account: EmailAccount,
+        message: Message | OutlookMessage,
+        folder: EmailFolder = EmailFolder.INBOX,
+    ):
         if isinstance(message, Message):
             self.sender = message.get_from()
             self.sender_name = message.get_from_name()
@@ -81,6 +88,7 @@ class Email(Base):
             self.raw_content = message.get_raw_content()
             self.thread_id = message.get_thread_id()
             self.email_account_id = email_account.id
+            self.folder = folder.value
         elif isinstance(message, OutlookMessage):
             self.sender = message.get_from()
             self.sender_name = message.get_from_name()
@@ -92,6 +100,7 @@ class Email(Base):
             self.email_id = message.get_email_id()
             self.raw_content = message.get_raw_content()
             self.email_account_id = email_account.id
+            self.folder = folder.value
 
         return self
 
@@ -111,6 +120,7 @@ class Email(Base):
             "email_id",
             "email_labels",
             "is_read",
+            "folder",
         ],
     ):
 

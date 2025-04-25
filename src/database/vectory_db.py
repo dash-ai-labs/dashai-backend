@@ -159,10 +159,11 @@ class VectorDB:
         query_engine = index.as_query_engine(llm=llm, streaming=True, similarity_top_k=top_k)
         formatted_query = EMAIL_SYSTEM_PROMPT + query
         response = query_engine.query(formatted_query)
+
         for text in response.response_gen:
             yield json.dumps({"data": text}) + "\n"
 
-    def suggest(
+    async def suggest(
         self,
         query: str,
         user_id: str,

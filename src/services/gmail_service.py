@@ -45,9 +45,14 @@ class GmailService:
 
         return cred
 
-    def list_messages(self, user_id="me", q=None):
+    def list_messages(self, user_id="me", q=None, label_ids=[]):
         try:
-            result = self._service.users().messages().list(userId=user_id, q=q).execute()
+            result = (
+                self._service.users()
+                .messages()
+                .list(userId=user_id, q=q, labelIds=label_ids)
+                .execute()
+            )
             messages = []
             if "messages" in result:
                 messages.extend(result["messages"])
