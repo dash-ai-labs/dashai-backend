@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.database.token import Token
 from src.libs.const import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+from src.libs.types import EmailFolder
 
 
 class GmailService:
@@ -16,6 +17,13 @@ class GmailService:
     def __init__(self, token: Token):
         self._oauth_token = token.token
         self._refresh_token = token.refresh_token
+        self.labels = {
+            EmailFolder.INBOX: "INBOX",
+            EmailFolder.SENT: "SENT",
+            EmailFolder.DRAFTS: "DRAFT",
+            EmailFolder.TRASH: "TRASH",
+            EmailFolder.SPAM: "SPAM",
+        }
         creds = Credentials(
             token=self._oauth_token,
             refresh_token=self._refresh_token,
@@ -23,7 +31,6 @@ class GmailService:
             client_secret=GOOGLE_CLIENT_SECRET,
             token_uri="https://accounts.google.com/o/oauth2/token",
         )
-
         if not creds or not creds.valid:
             print("Token not valid")
             creds = self.validate_token(cred=creds, token=token)
@@ -45,12 +52,12 @@ class GmailService:
 
         return cred
 
-    def list_messages(self, user_id="me", q=None, label_ids=[]):
+    def list_messages(self, user_id="me", q=None, folder: EmailFolder = None):
         try:
             result = (
                 self._service.users()
                 .messages()
-                .list(userId=user_id, q=q, labelIds=label_ids)
+                .list(userId=user_id, q=q, labelIds=[self.labels[folder]])
                 .execute()
             )
             messages = []

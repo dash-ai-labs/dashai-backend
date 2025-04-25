@@ -140,7 +140,7 @@ def _process_gmail_folder(
     Returns:
         Set[str]: Set of new message IDs processed
     """
-    messages = gmail_service.list_messages(q=f"after:{from_date}", label_ids=[folder.value])
+    messages = gmail_service.list_messages(q=f"after:{from_date}", folder=folder)
     if len(messages) > 0:
         message_ids = [message["id"] for message in messages]
 
