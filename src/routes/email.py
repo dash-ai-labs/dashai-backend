@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from src.database import Email, EmailAccount, EmailLabel, VectorDB, get_db
-from src.libs.types import EmailData
+from src.libs.types import EmailData, EmailFolder
 from src.routes.middleware import get_user_id
 
 router = APIRouter()
@@ -26,12 +26,29 @@ class LabelActionType(Enum):
     remove = "remove"
 
 
+@router.get("/user/{user_id}/emails/{folder}/count")
+async def get_emails_count(
+    user_id: str,
+    folder: EmailFolder,
+    user=Depends(get_user_id),
+):
+    if user_id == user.get("user_id"):
+        with get_db() as db:
+            return (
+                db.query(Email)
+                .filter(Email.folder == folder, EmailAccount.user_id == user_id)
+                .count()
+            )
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @router.get("/user/{user_id}/emails")
 async def get_emails(
     request: Request,
     user_id: str,
     account: str = Query(default=""),
     filter_is_read: Optional[bool] = Query(default=None, alias="filter[is_read]"),
+    folder: Optional[EmailFolder] = Query(default=EmailFolder.INBOX),
     limit: int = Query(default=30),
     page: int = Query(default=1),
     user=Depends(get_user_id),
@@ -42,21 +59,30 @@ async def get_emails(
             if account:
                 email_account = (
                     db.query(EmailAccount)
-                    .filter(EmailAccount.email == account, EmailAccount.user_id == user_id)
+                    .filter(
+                        EmailAccount.email == account,
+                        EmailAccount.user_id == user_id,
+                    )
                     .first()
                 )
                 if not email_account:
                     raise HTTPException(status_code=404, detail="Email account not found")
 
                 # Get total count for pagination
-                query = db.query(Email).filter(Email.email_account_id == email_account.id)
+                query = db.query(Email).filter(
+                    Email.email_account_id == email_account.id,
+                    Email.folder == folder,
+                )
 
                 if filter_is_read is not None:
                     query = query.filter(Email.is_read == filter_is_read)
 
                 total_count = query.count()
 
-                email_query = db.query(Email).filter(Email.email_account_id == email_account.id)
+                email_query = db.query(Email).filter(
+                    Email.email_account_id == email_account.id,
+                    Email.folder == folder,
+                )
 
                 if filter_is_read is not None:
                     email_query = email_query.filter(Email.is_read == filter_is_read)
@@ -76,14 +102,18 @@ async def get_emails(
                 ]
 
                 # Get total count for pagination
-                query = db.query(Email).filter(Email.email_account_id.in_(email_account_ids))
+                query = db.query(Email).filter(
+                    Email.email_account_id.in_(email_account_ids), Email.folder == folder
+                )
 
                 if filter_is_read is not None:
                     query = query.filter(Email.is_read == filter_is_read)
 
                 total_count = query.count()
 
-                email_query = db.query(Email).filter(Email.email_account_id.in_(email_account_ids))
+                email_query = db.query(Email).filter(
+                    Email.email_account_id.in_(email_account_ids), Email.folder == folder
+                )
 
                 if filter_is_read is not None:
                     email_query = email_query.filter(Email.is_read == filter_is_read)
@@ -98,7 +128,11 @@ async def get_emails(
             # Check if we've reached the end of the records
             end = (page - 1) * limit + len(emails) >= total_count
 
-            return {"emails": [email.to_dict() for email in emails], "end": end}
+            return {
+                "emails": [email.to_dict() for email in emails],
+                "end": end,
+                "total_count": total_count,
+            }
 
     raise HTTPException(status_code=401, detail="Unauthorized")
 

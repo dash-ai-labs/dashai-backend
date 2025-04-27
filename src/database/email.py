@@ -263,11 +263,14 @@ class Email(Base):
             return self
 
     async def delete(self, db: Session):
+        self.folder = EmailFolder.TRASH.value
+        db.commit()
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             gmail_service.modify_labels(message_id=self.email_id, add_labels=["TRASH"])
             return self
         if self.email_account.provider == EmailProvider.OUTLOOK:
+
             outlook_service = OutlookService(self.email_account.token, db)
             await outlook_service.delete(self.email_id)
             return self
