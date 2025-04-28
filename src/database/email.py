@@ -253,6 +253,7 @@ class Email(Base):
         return self
 
     async def archive(self, db: Session):
+
         if self.email_account.provider == EmailProvider.GMAIL:
             gmail_service = GmailService(self.email_account.token)
             gmail_service.modify_labels(message_id=self.email_id, remove_labels=["INBOX"])

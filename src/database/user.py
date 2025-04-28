@@ -27,8 +27,9 @@ class User(Base):
         "EmailAccount",
         back_populates="user",
     )
+    notifications = relationship("Notification", back_populates="user")
     email_labels = relationship("EmailLabel", back_populates="user")
-    
+
     def to_dict(self):
         return {
             "id": str(self.id),

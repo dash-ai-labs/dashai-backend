@@ -6,16 +6,20 @@ import secrets
 from datetime import datetime, timedelta
 
 import jwt
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from src.celery_tasks import ingest_email
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
-from src.libs.const import SECRET_KEY
+from src.database.notification import Notification
+from src.libs.const import SECRET_KEY, STAGE, STRIPE_SECRET_KEY
 from src.routes.middleware import ALGORITHM, get_user_id
 from src.services import FlowService, GoogleProfileService, OutlookService
 
 router = APIRouter()
+
+stripe.api_key = STRIPE_SECRET_KEY
 
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
@@ -52,6 +56,36 @@ async def outlook_auth_url():
     return {"url": outlook_service.authorize_url(state=state, code_challenge=code_challenge)}
 
 
+def _create_subscription(user: User):
+    customer = stripe.Customer.create(email=user.email, name=user.name)
+    pricing_id = (
+        "price_1RIJqcH77fbQTfphHxKGuWL1" if STAGE == "prod" else "price_1RIbQXH77fbQTfphp3iQCvox"
+    )
+    subscription = stripe.Subscription.create(
+        customer=customer.id,
+        items=[{"price": pricing_id}],
+        trial_period_days=14,
+    )
+    return_url = "https://app.getdash.ai" if STAGE == "prod" else "http://localhost:5173"
+    checkout_session = stripe.checkout.Session.create(
+        mode="setup",  # <-- Important: we're just collecting payment method
+        customer=customer.id,  # Your Stripe customer ID
+        setup_intent_data={
+            "metadata": {"subscription_id": subscription.id}  # Your created subscription ID
+        },
+        currency="usd",
+        success_url=return_url,
+    )
+
+    notification = Notification(
+        user=user,
+        title="Welcome to Dash AI! Your 14 day trial has started.",
+        message="You have access to all features for the next 14 days. To continue using Dash AI, please upgrade to a paid plan.",
+        link=checkout_session.url,
+    )
+    return notification
+
+
 @router.post("/auth/outlook/callback")
 async def outlook_callback(callback: Callback):
     code = callback.code
@@ -79,6 +113,8 @@ async def outlook_callback(callback: Callback):
                 name=user_info.get("displayName"),
                 outlook_id=user_info["id"],
             )
+            notification = _create_subscription(user)
+            db.add(notification)
         email_account = EmailAccount.get_or_create_email_account(
             db, EmailProvider.OUTLOOK, user, user_info["mail"]
         )
@@ -186,6 +222,9 @@ async def google_callback(callback: Callback):
                 name=user_info.get("name"),
                 profile_pic=user_info.get("picture"),
             )
+            notification = _create_subscription(user)
+            db.add(notification)
+
         user.profile_pic = user_info.get("picture")
 
         email_account = EmailAccount.get_or_create_email_account(
@@ -195,7 +234,11 @@ async def google_callback(callback: Callback):
         if not email_account.token and not email_account.last_sync:
 
             oauth_token = Token.get_or_create_token(
-                db, email_account.id, credentials.token, credentials.refresh_token
+                db,
+                email_account.id,
+                credentials.token,
+                credentials.refresh_token,
+                credentials.expiry,
             )
             email_account.token = oauth_token
 
