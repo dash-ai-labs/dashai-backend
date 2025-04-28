@@ -11,6 +11,7 @@ from src.routes import (
     compose_router,
     email_router,
     label_router,
+    notification_router,
     proxy_router,
     task_router,
 )
@@ -101,6 +102,7 @@ app.include_router(label_router)
 app.include_router(proxy_router)
 app.include_router(compose_router)
 app.include_router(task_router)
+app.include_router(notification_router)
 
 
 @app.get("/health")
