@@ -36,6 +36,7 @@ async def get_emails_count(
         with get_db() as db:
             return (
                 db.query(Email)
+                .join(EmailAccount, Email.email_account_id == EmailAccount.id)
                 .filter(Email.folder == folder, EmailAccount.user_id == user_id)
                 .count()
             )
