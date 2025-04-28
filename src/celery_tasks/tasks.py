@@ -295,6 +295,10 @@ def _insert_new_emails(
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
                 _commit_emails(db, emails_created)
+                if email_account.status != EmailAccountStatus.SUCCESS:
+                    email_account.status = EmailAccountStatus.SUCCESS
+                    db.add(email_account)
+                    db.commit()
                 emails_created = []
 
         except Exception as message_error:
@@ -335,6 +339,10 @@ def _insert_new_outlook_emails(
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
                 _commit_emails(db, emails_created)
+                if email_account.status != EmailAccountStatus.SUCCESS:
+                    email_account.status = EmailAccountStatus.SUCCESS
+                    db.add(email_account)
+                    db.commit()
                 emails_created = []
         except Exception as e:
             logger.warning(
