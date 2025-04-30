@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from src.celery_tasks import ingest_email
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
 from src.database.notification import Notification
-from src.libs.const import SECRET_KEY, STAGE, STRIPE_SECRET_KEY
+from src.libs.const import SECRET_KEY, STRIPE_SECRET_KEY, STAGE
+from src.libs.types import STAGE_TYPE
 from src.routes.middleware import ALGORITHM, get_user_id
 from src.services import FlowService, GoogleProfileService, OutlookService
 
@@ -59,14 +60,18 @@ async def outlook_auth_url():
 def _create_subscription(user: User):
     customer = stripe.Customer.create(email=user.email, name=user.name)
     pricing_id = (
-        "price_1RIJqcH77fbQTfphHxKGuWL1" if STAGE == "prod" else "price_1RIbQXH77fbQTfphp3iQCvox"
+        "price_1RIJqcH77fbQTfphHxKGuWL1"
+        if STAGE == STAGE_TYPE.PRODUCTION
+        else "price_1RIbQXH77fbQTfphp3iQCvox"
     )
     subscription = stripe.Subscription.create(
         customer=customer.id,
         items=[{"price": pricing_id}],
         trial_period_days=14,
     )
-    return_url = "https://app.getdash.ai" if STAGE == "prod" else "http://localhost:5173"
+    return_url = (
+        "https://app.getdash.ai" if STAGE == STAGE_TYPE.PRODUCTION else "http://localhost:5173"
+    )
     checkout_session = stripe.checkout.Session.create(
         mode="setup",  # <-- Important: we're just collecting payment method
         customer=customer.id,  # Your Stripe customer ID

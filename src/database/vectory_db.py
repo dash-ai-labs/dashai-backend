@@ -1,6 +1,6 @@
 import json
 
-from llama_index.core import Document, ServiceContext, Settings, VectorStoreIndex
+from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI as LLMOpenAI
@@ -33,7 +33,7 @@ class VectorDB:
         self.vector_store = PineconeVectorStore(pinecone_index=self.index, add_sparse_vector=True)
         self.transaction_store = PineconeVectorStore(pinecone_index=self.transaction_index)
         self.embed_model = OpenAIEmbedding(api_key=OPENAI_API_KEY, model="text-embedding-3-small")
-        self.service_context = ServiceContext.from_defaults(embed_model=self.embed_model)
+        Settings.embed_model = self.embed_model
 
         self.pipeline = IngestionPipeline(
             transformations=[

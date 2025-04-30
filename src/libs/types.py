@@ -4,6 +4,11 @@ from typing import List
 from pydantic import BaseModel
 
 
+class STAGE_TYPE(str, Enum):
+    PRODUCTION = "production"
+    DEVELOPMENT = "development"
+
+
 class EmailData(BaseModel):
     from_addr: str
     to: List[str]
