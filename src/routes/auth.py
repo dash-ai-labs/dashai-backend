@@ -93,7 +93,7 @@ def _create_subscription(user: User):
 
 
 @router.delete("/user/{user_id}")
-async def delete_user(user_id: str, user=Depends(get_user_id)):
+async def delete_user_route(user_id: str, user=Depends(get_user_id)):
     if user_id == user.get("user_id"):
         with get_db() as db:
             user = db.query(User).filter(User.id == user_id).first()
