@@ -12,6 +12,10 @@ from src.base import Message
 from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
 from src.database.email_account import EmailAccountStatus, EmailProvider
+from src.database.email_label import EmailLabel
+from src.database.notification import Notification
+from src.libs.const import DISCORD_USER_ALERTS_CHANNEL
+from src.libs.discord_service import send_discord_message
 from src.libs.text_utils import summarize_text
 from src.libs.types import EmailFolder
 from src.services import GmailService
@@ -438,3 +442,53 @@ def embed_new_emails(user_id: str = None):
                     db.add(email)
             db.commit()
             print("Finished generating summaries.")
+
+
+@shared_task(name="delete_user")
+def delete_user(user_id: str):
+    with get_db() as db:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user_email = user.email
+
+            try:
+                emails = db.query(Email).filter(Email.email_account.has(user_id=user_id)).all()
+                for email in emails:
+                    db.delete(email)
+            except Exception as e:
+                logger.error(f"Error deleting emails for user {user_id}: {e}", exc_info=True)
+            try:
+                email_accounts = (
+                    db.query(EmailAccount).filter(EmailAccount.user_id == user_id).all()
+                )
+                for email_account in email_accounts:
+                    db.delete(email_account)
+            except Exception as e:
+                logger.error(
+                    f"Error deleting email accounts for user {user_id}: {e}", exc_info=True
+                )
+
+            try:
+                tokens = db.query(Token).filter(Token.user_id == user_id).all()
+                for token in tokens:
+                    db.delete(token)
+            except Exception as e:
+                logger.error(f"Error deleting tokens for user {user_id}: {e}", exc_info=True)
+            try:
+                notifications = db.query(Notification).filter(Notification.user_id == user_id).all()
+                for notification in notifications:
+                    db.delete(notification)
+            except Exception as e:
+                logger.error(f"Error deleting notifications for user {user_id}: {e}", exc_info=True)
+            try:
+                email_labels = db.query(EmailLabel).filter(EmailLabel.user_id == user_id).all()
+                for email_label in email_labels:
+                    db.delete(email_label)
+            except Exception as e:
+                logger.error(f"Error deleting email labels for user {user_id}: {e}", exc_info=True)
+
+            db.delete(user)
+            db.commit()
+            send_discord_message(f"User {user_email} has been deleted", DISCORD_USER_ALERTS_CHANNEL)
+        else:
+            logger.warning(f"User with ID {user_id} not found")

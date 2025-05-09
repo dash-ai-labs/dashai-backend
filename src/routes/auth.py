@@ -10,10 +10,11 @@ import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
-from src.celery_tasks import ingest_email
+from src.celery_tasks import ingest_email, delete_user
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
 from src.database.notification import Notification
-from src.libs.const import SECRET_KEY, STRIPE_SECRET_KEY, STAGE
+from src.libs.const import DISCORD_USER_ALERTS_CHANNEL, SECRET_KEY, STRIPE_SECRET_KEY, STAGE
+from src.libs.discord_service import send_discord_message
 from src.libs.types import STAGE_TYPE
 from src.routes.middleware import ALGORITHM, get_user_id
 from src.services import FlowService, GoogleProfileService, OutlookService
@@ -91,6 +92,16 @@ def _create_subscription(user: User):
     return notification
 
 
+@router.delete("/user/{user_id}")
+async def delete_user(user_id: str, user=Depends(get_user_id)):
+    if user_id == user.get("user_id"):
+        with get_db() as db:
+            user = db.query(User).filter(User.id == user_id).first()
+            delete_user.delay(user_id)
+        return {"message": "User deleted"}
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @router.post("/auth/outlook/callback")
 async def outlook_callback(callback: Callback):
     code = callback.code
@@ -120,6 +131,7 @@ async def outlook_callback(callback: Callback):
             )
             notification = _create_subscription(user)
             db.add(notification)
+            send_discord_message(f"User {user.email} has signed up", DISCORD_USER_ALERTS_CHANNEL)
         email_account = EmailAccount.get_or_create_email_account(
             db, EmailProvider.OUTLOOK, user, user_info["mail"]
         )
@@ -229,7 +241,7 @@ async def google_callback(callback: Callback):
             )
             notification = _create_subscription(user)
             db.add(notification)
-
+            send_discord_message(f"User {user.email} has signed up", DISCORD_USER_ALERTS_CHANNEL)
         user.profile_pic = user_info.get("picture")
 
         email_account = EmailAccount.get_or_create_email_account(

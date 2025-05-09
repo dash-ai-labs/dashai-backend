@@ -11,6 +11,7 @@ azure-identity==1.21.0
 beautifulsoup4==4.12.3
 billiard==4.2.1
 black==24.1.1
+boto3==1.38.12
 cachetools==5.5.0
 celery==5.4.0
 certifi==2024.8.30
