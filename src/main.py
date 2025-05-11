@@ -13,6 +13,7 @@ from src.routes import (
     label_router,
     notification_router,
     proxy_router,
+    settings_router,
     task_router,
 )
 
@@ -103,6 +104,7 @@ app.include_router(proxy_router)
 app.include_router(compose_router)
 app.include_router(task_router)
 app.include_router(notification_router)
+app.include_router(settings_router)
 
 
 @app.get("/health")

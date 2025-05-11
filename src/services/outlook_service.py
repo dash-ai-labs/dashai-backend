@@ -185,6 +185,24 @@ class OutlookService:
             print("Error deleting message: ", e)
             return False
 
+    async def move_to_inbox(self, message_id: str):
+        try:
+            msg_update = Message()
+            msg_update.destination_id = "inbox"
+            await self.client.me.messages.by_message_id(message_id).move(msg_update)
+        except Exception as e:
+            print("Error moving message to inbox: ", e)
+            return False
+
+    async def move_to_spam(self, message_id: str):
+        try:
+            msg_update = Message()
+            msg_update.destination_id = "junkemail"
+            await self.client.me.messages.by_message_id(message_id).move(msg_update)
+        except Exception as e:
+            print("Error moving message to spam: ", e)
+            return False
+
     async def send_email(self, email: EmailData):
         try:
             request_body = SendMailPostRequestBody(

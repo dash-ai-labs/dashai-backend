@@ -14,6 +14,7 @@ from src.database import Email, EmailAccount, Token, User, get_db
 from src.database.email_account import EmailAccountStatus, EmailProvider
 from src.database.email_label import EmailLabel
 from src.database.notification import Notification
+from src.database.settings import Settings
 from src.libs.const import DISCORD_USER_ALERTS_CHANNEL
 from src.libs.discord_service import send_discord_message
 from src.libs.text_utils import summarize_text
@@ -288,13 +289,37 @@ def _insert_new_emails(
         new_message_ids (Set[str]): Set of new message IDs to process
     """
     emails_created: List[Email] = []
+    settings: Settings = Settings.get_or_create_settings(db, email_account.id)
 
     for message_id in new_message_ids:
         try:
             email = gmail_service.get_message(message_id)
-            emails_created.append(
-                Email(email_account=email_account, message=Message(email), folder=folder)
-            )
+            message = Message(email)
+            if any(
+                email_address in message.get_from()
+                for email_address in settings.email_list[EmailFolder.INBOX]
+            ):
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=EmailFolder.INBOX)
+                )
+            elif any(
+                email_address in message.get_from()
+                for email_address in settings.email_list[EmailFolder.SPAM]
+            ):
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=EmailFolder.SPAM)
+                )
+            elif any(
+                email_address in message.get_from()
+                for email_address in settings.email_list[EmailFolder.TRASH]
+            ):
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=EmailFolder.TRASH)
+                )
+            else:
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=folder)
+                )
 
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
@@ -331,15 +356,36 @@ def _insert_new_outlook_emails(
         new_messages (List[any]): List of new messages to process
     """
     emails_created: List[Email] = []
+    settings: Settings = Settings.get_or_create_settings(db, email_account.id)
     for message in new_messages:
         try:
-            emails_created.append(
-                Email(
-                    email_account=email_account,
-                    message=OutlookMessage(message),
-                    folder=folder,
+            message = OutlookMessage(message)
+            if any(
+                email_address in message.get_from()
+                for email_address in settings.email_list[EmailFolder.INBOX]
+            ):
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=EmailFolder.INBOX)
                 )
-            )
+            elif any(
+                email_address in message.get_from()
+                for email_address in settings.email_list[EmailFolder.SPAM]
+            ):
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=EmailFolder.SPAM)
+                )
+            elif any(
+                email_address in message.get_from()
+                for email_address in settings.email_list[EmailFolder.TRASH]
+            ):
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=EmailFolder.TRASH)
+                )
+            else:
+                emails_created.append(
+                    Email(email_account=email_account, message=message, folder=folder)
+                )
+
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
                 _commit_emails(db, emails_created)

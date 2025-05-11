@@ -10,3 +10,4 @@ from .task import EmailTask
 from .token import Token
 from .user import User
 from .vectory_db import VectorDB
+from .settings import Settings
