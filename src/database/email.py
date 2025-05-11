@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime
 
-import cssutils
 from bs4 import BeautifulSoup
 from fastapi import Request
 from fastapi.responses import HTMLResponse
@@ -33,8 +32,6 @@ from src.services.outlook_service import OutlookService
 pinecone = VectorDB()
 
 CHUNK_SIZE = 50
-
-cssutils.log.setLevel("CRITICAL")
 
 
 class Email(Base):
@@ -121,6 +118,7 @@ class Email(Base):
             "email_labels",
             "is_read",
             "folder",
+            "email_account_id",
         ],
     ):
 
@@ -271,9 +269,32 @@ class Email(Base):
             gmail_service.modify_labels(message_id=self.email_id, add_labels=["TRASH"])
             return self
         if self.email_account.provider == EmailProvider.OUTLOOK:
-
             outlook_service = OutlookService(self.email_account.token, db)
             await outlook_service.delete(self.email_id)
+            return self
+
+    async def move_to_inbox(self, db: Session):
+        self.folder = EmailFolder.INBOX.value
+        db.commit()
+        if self.email_account.provider == EmailProvider.GMAIL:
+            gmail_service = GmailService(self.email_account.token)
+            gmail_service.modify_labels(message_id=self.email_id, add_labels=["INBOX"])
+            return self
+        if self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            await outlook_service.move_to_inbox(self.email_id)
+            return self
+
+    async def move_to_spam(self, db: Session):
+        self.folder = EmailFolder.SPAM.value
+        db.commit()
+        if self.email_account.provider == EmailProvider.GMAIL:
+            gmail_service = GmailService(self.email_account.token)
+            gmail_service.modify_labels(message_id=self.email_id, add_labels=["SPAM"])
+            return self
+        if self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            await outlook_service.move_to_spam(self.email_id)
             return self
 
     def chunk_text_stream(self, text, max_chunk_length=4000, overlap=100):

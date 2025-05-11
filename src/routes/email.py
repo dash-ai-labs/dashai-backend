@@ -19,6 +19,7 @@ class ActionType(Enum):
     read = "read"
     star = "star"
     spam = "spam"
+    inbox = "inbox"
 
 
 class LabelActionType(Enum):
@@ -186,6 +187,10 @@ async def modify_email(
                     e = await email.archive(db)
                 elif action == ActionType.delete:
                     e = await email.delete(db)
+                elif action == ActionType.inbox:
+                    e = await email.move_to_inbox(db)
+                elif action == ActionType.spam:
+                    e = await email.move_to_spam(db)
                 e = await e.sync_from_web(db)
                 return e.to_dict()
             else:

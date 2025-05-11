@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, relationship
 
 from src.database.db import Base
+from src.database.settings import Settings
 from src.libs.types import EmailData
 from src.services.gmail_service import GmailService
 from src.services.outlook_service import OutlookService
@@ -42,6 +43,7 @@ class EmailAccount(Base):
     user = relationship("User", back_populates="email_accounts")
     emails = relationship("Email", back_populates="email_account")
     tasks = relationship("EmailTask", back_populates="email_account")
+    settings = relationship("Settings", back_populates="email_account", uselist=False)
     status = Column(
         Enum(EmailAccountStatus, name="emailaccountstatus"),
         default=EmailAccountStatus.NOT_STARTED,
@@ -86,7 +88,6 @@ class EmailAccount(Base):
 
     @classmethod
     def get_or_create_email_account(cls, db: Session, provider: EmailProvider, user, email):
-        print(provider, user.id, email)
         email_account = (
             db.query(cls)
             .filter(
@@ -105,7 +106,9 @@ class EmailAccount(Base):
             user_id=user.id,
             provider=provider,
         )
+        settings = Settings(email_account_id=email_account.id)
         db.add(email_account)
+        db.add(settings)
 
         try:
             db.commit()
