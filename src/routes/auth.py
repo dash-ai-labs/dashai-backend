@@ -141,9 +141,7 @@ async def outlook_callback(callback: Callback):
             # Check if this user's email exists in any other user's referrals
             referred = (
                 db.query(User)
-                .filter(User.referrals.isnot(None))
-                .filter(User.referrals.op("?")("email"))
-                .filter(User.referrals.contains([{"email": user_info["mail"]}]))
+                .filter(cast(User.referrals["email"], String) == user_info["email"])
                 .first()
             )
             user = User(
