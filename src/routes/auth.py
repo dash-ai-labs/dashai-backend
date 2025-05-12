@@ -9,7 +9,7 @@ import jwt
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-
+from sqlalchemy import cast, String
 from src.celery_tasks import ingest_email, delete_user
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
 from src.database.notification import Notification
@@ -102,6 +102,20 @@ async def delete_user_route(user_id: str, user=Depends(get_user_id)):
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+@router.post("/user/{user_id}/referral")
+async def send_referral(user_id: str, email: str, user=Depends(get_user_id)):
+    if user_id == user.get("user_id"):
+        with get_db() as db:
+            user = db.query(User).filter(User.id == user_id).first()
+            referral = db.query(User).filter(User.email == email).first()
+            if referral:
+                user.referrals.append({"email": email, "accepted": True})
+            else:
+                user.referrals.append({"email": email, "accepted": False})
+            db.commit()
+        return {"message": "Referral added"}
+
+
 @router.post("/auth/outlook/callback")
 async def outlook_callback(callback: Callback):
     code = callback.code
@@ -124,10 +138,19 @@ async def outlook_callback(callback: Callback):
             user = db.query(User).filter(User.email == user_info["mail"]).first()
 
         if not user:
+            # Check if this user's email exists in any other user's referrals
+            referred = (
+                db.query(User)
+                .filter(User.referrals.isnot(None))
+                .filter(User.referrals.op("?")("email"))
+                .filter(User.referrals.contains([{"email": user_info["mail"]}]))
+                .first()
+            )
             user = User(
                 email=user_info["mail"],
                 name=user_info.get("displayName"),
                 outlook_id=user_info["id"],
+                waitlisted=referred is None,
             )
             notification = _create_subscription(user)
             db.add(notification)
@@ -233,11 +256,21 @@ async def google_callback(callback: Callback):
 
         # Create user if not found
         if not user:
+            # Check if this user's email exists in any other user's referrals
+            referred = (
+                db.query(User)
+                .filter(cast(User.referrals["email"], String) == user_info["email"])
+                .first()
+            )
+
+            # If found, we can use this information later for referral tracking
+            # or to automatically connect users who were referred
             user = User(
                 email=user_info["email"],
                 google_id=user_info["id"],
                 name=user_info.get("name"),
                 profile_pic=user_info.get("picture"),
+                waitlisted=referred is None,
             )
             notification = _create_subscription(user)
             db.add(notification)

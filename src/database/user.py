@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import UUID, Column, DateTime, String, UniqueConstraint
+from sqlalchemy import UUID, Column, DateTime, String, UniqueConstraint, Boolean, JSON
 from sqlalchemy.orm import relationship
 
 from src.database.db import Base
@@ -29,6 +29,8 @@ class User(Base):
     )
     notifications = relationship("Notification", back_populates="user")
     email_labels = relationship("EmailLabel", back_populates="user")
+    waitlisted = Column(Boolean, default=True)
+    referrals = Column(JSON, default=[])
 
     def to_dict(self):
         return {
@@ -38,4 +40,5 @@ class User(Base):
             "last_login": self.last_login,
             "profile_pic": self.profile_pic,
             "email_accounts": [email_account.to_dict() for email_account in self.email_accounts],
+            "waitlisted": self.waitlisted,
         }
