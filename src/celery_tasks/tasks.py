@@ -77,7 +77,7 @@ def get_new_emails():
             all_email_accounts = db.query(EmailAccount).all()
 
             for email_account in all_email_accounts:
-                if email_account.waitlisted:
+                if email_account.user.waitlisted:
                     continue
                 try:
                     # Determine date range for email fetch
