@@ -160,7 +160,6 @@ def _process_gmail_folder(
         # Process and insert new emails in chunks
         _insert_new_emails(db, gmail_service, email_account, new_message_ids, folder)
     else:
-        logger.info(f"No new {folder.value} emails found for {email_account.id}")
         return set()
 
 

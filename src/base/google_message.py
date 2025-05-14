@@ -87,7 +87,7 @@ class Message(AbstractMessage):
         lst = [
             entry["value"]
             for entry in self._message_dict["payload"]["headers"]
-            if entry["name"] == field
+            if entry["name"].lower() == field.lower()
         ]
         if len(lst) > 0:
             return lst[0]
