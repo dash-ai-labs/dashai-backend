@@ -104,13 +104,17 @@ class Message(AbstractMessage):
             return self._get_email_body(
                 message_parts=message_parts[content_types.index("text/plain")]
             )
-
-        elif "multipart/alternative" in content_types:
-            multi_part_content = message_parts[content_types.index("multipart/alternative")]
-            if "parts" in multi_part_content:
-                return self._get_raw_parts_content(message_parts=multi_part_content["parts"])
-            else:
-                return None
+        # Handle multipart types recursively
+        elif any(mtype.startswith("multipart/") for mtype in content_types):
+            # Find the first multipart type
+            for mtype in ["multipart/alternative", "multipart/related", "multipart/mixed"]:
+                if mtype in content_types:
+                    multi_part_content = message_parts[content_types.index(mtype)]
+                    if "parts" in multi_part_content:
+                        return self._get_raw_parts_content(
+                            message_parts=multi_part_content["parts"]
+                        )
+            return None
         else:
             return None
 
@@ -127,12 +131,15 @@ class Message(AbstractMessage):
                     message_parts=message_parts[content_types.index("text/html")]
                 )
             )
-        elif "multipart/alternative" in content_types:
-            multi_part_content = message_parts[content_types.index("multipart/alternative")]
-            if "parts" in multi_part_content:
-                return self._get_parts_content(message_parts=multi_part_content["parts"])
-            else:
-                return None
+        # Handle multipart types recursively
+        elif any(mtype.startswith("multipart/") for mtype in content_types):
+            # Find the first multipart type
+            for mtype in ["multipart/alternative", "multipart/related", "multipart/mixed"]:
+                if mtype in content_types:
+                    multi_part_content = message_parts[content_types.index(mtype)]
+                    if "parts" in multi_part_content:
+                        return self._get_parts_content(message_parts=multi_part_content["parts"])
+            return None
         else:
             content = clean_up_text(self._get_raw_parts_content(message_parts=message_parts))
 
