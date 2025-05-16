@@ -1,11 +1,24 @@
 from datetime import datetime
 import uuid
+from enum import Enum
+
 from sqlalchemy import JSON, UUID, Column, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Session
 
 from src.database.db import Base
 from src.libs.types import EmailFolder
+
+
+class WritingStyle(str, Enum):
+    CASUAL = "casual"
+    LAWYER = "lawyer"
+    SCIENTIST = "scientist"
+    MARKETER = "marketer"
+    WRITER = "writer"
+    ACCOUNTANT = "accountant"
+    GENZ = "genz"
+    MANAGER = "manager"
 
 
 class Settings(Base):
@@ -24,10 +37,7 @@ class Settings(Base):
     )
     email_preferences = Column(
         JSON,
-        default={
-            "use_emojis": True,
-            "always_include_greetings": True,
-        },
+        default={"use_emojis": True, "always_include_greetings": True, "writing_style": "casual"},
     )
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

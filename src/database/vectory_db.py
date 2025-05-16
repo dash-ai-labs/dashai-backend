@@ -170,6 +170,7 @@ class VectorDB:
         name: str,
         filter: dict,
         top_k: int = 50,
+        writing_style="",
     ):
         index = VectorStoreIndex.from_vector_store(
             vector_store=PineconeVectorStore(pinecone_index=self.index, namespace=str(user_id)),
@@ -178,7 +179,9 @@ class VectorDB:
         query_engine = index.as_query_engine(
             llm=llm, streaming=True, similarity_top_k=top_k, filter=filter
         )
-        formatted_query = EMAIL_SUGGESTION_PROMPT.format(user=name) + query
+        formatted_query = (
+            EMAIL_SUGGESTION_PROMPT.format(user=name, writing_style=writing_style) + query
+        )
         response = query_engine.query(formatted_query)
         for text in response.response_gen:
             yield json.dumps({"data": text}) + "\n"

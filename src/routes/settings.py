@@ -11,7 +11,7 @@ router = APIRouter()
 
 class SettingsInput(BaseModel):
     email_list: Dict[EmailFolder, List[str]]
-    email_preferences: Dict[str, bool]
+    email_preferences: Dict[str, bool | str]
 
 
 @router.post("/user/{user_id}/email_account/{email_account_id}/settings")
