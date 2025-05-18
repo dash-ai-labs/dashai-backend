@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     && mkdir -p /workspace/dash_ai
 
 WORKDIR /workspace/dash_ai
+
+COPY ./model_cache /workspace/dash_ai/model_cache
 COPY ./requirements.txt /workspace/dash_ai/requirements.txt
 
 RUN pip install -r ./requirements.txt \
