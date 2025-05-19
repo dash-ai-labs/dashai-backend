@@ -130,7 +130,7 @@ async def outlook_callback(callback: Callback):
     outlook_service = OutlookService()
     token_data = outlook_service.exchange_code(code, code_verifier)
     user_info = await outlook_service.get_user_info(token=token_data["access_token"])
-
+    print(user_info)
     with get_db() as db:
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()
@@ -139,11 +139,16 @@ async def outlook_callback(callback: Callback):
 
         if not user:
             # Check if this user's email exists in any other user's referrals
-            referred = (
-                db.query(User)
-                .filter(cast(User.referrals["email"], String) == user_info["email"])
-                .first()
-            )
+            try:
+                referred = (
+                    db.query(User)
+                    .filter(User.referrals.is_not(None))
+                    .filter(cast(User.referrals["email"], String) == user_info["email"])
+                    .first()
+                )
+            except Exception as e:
+                print(e)
+                referred = None
             user = User(
                 email=user_info["mail"],
                 name=user_info.get("displayName"),
@@ -246,6 +251,7 @@ async def google_callback(callback: Callback):
         oauth_token=credentials.token, refresh_token=credentials.refresh_token
     )
     user_info = google_profile_service.get_profile()
+    print(user_info)
     with get_db() as db:
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()
@@ -255,11 +261,16 @@ async def google_callback(callback: Callback):
         # Create user if not found
         if not user:
             # Check if this user's email exists in any other user's referrals
-            referred = (
-                db.query(User)
-                .filter(cast(User.referrals["email"], String) == user_info["email"])
-                .first()
-            )
+            try:
+                referred = (
+                    db.query(User)
+                    .filter(User.referrals.is_not(None))
+                    .filter(cast(User.referrals["email"], String) == user_info["email"])
+                    .first()
+                )
+            except Exception as e:
+                print(e)
+                referred = None
 
             # If found, we can use this information later for referral tracking
             # or to automatically connect users who were referred
