@@ -48,6 +48,7 @@ async def create_suggestion(
             query += f", body: {body} "
 
         if not writing_style:
+            writing_style = ""
             if settings:
                 writing_style = settings.email_preferences.get("writing_style")
                 writing_style += (
@@ -58,8 +59,7 @@ async def create_suggestion(
                     if settings.email_preferences.get("always_include_greetings")
                     else ""
                 )
-            else:
-                writing_style = ""
+
         return StreamingResponse(
             pinecone.suggest(
                 user_id=user_id,
