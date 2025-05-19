@@ -1,1 +1,1 @@
-from .tasks import ingest_email, delete_user
+from .tasks import delete_user, ingest_email

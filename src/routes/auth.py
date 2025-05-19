@@ -9,11 +9,18 @@ import jwt
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
-from sqlalchemy import cast, String
-from src.celery_tasks import ingest_email, delete_user
+from sqlalchemy import String, cast
+
+from src.celery_tasks import delete_user, ingest_email
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
 from src.database.notification import Notification
-from src.libs.const import DISCORD_USER_ALERTS_CHANNEL, SECRET_KEY, STRIPE_SECRET_KEY, STAGE
+from src.database.waitlist import OffWaitlist
+from src.libs.const import (
+    DISCORD_USER_ALERTS_CHANNEL,
+    SECRET_KEY,
+    STAGE,
+    STRIPE_SECRET_KEY,
+)
 from src.libs.discord_service import send_discord_message
 from src.libs.types import STAGE_TYPE
 from src.routes.middleware import ALGORITHM, get_user_id
@@ -102,6 +109,17 @@ async def delete_user_route(user_id: str, user=Depends(get_user_id)):
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+@router.patch("/user/{user_id}")
+async def update_user(user_id: str, show_tutorial: bool, user=Depends(get_user_id)):
+    if user_id == user.get("user_id"):
+        with get_db() as db:
+            user = db.query(User).filter(User.id == user_id).first()
+            user.show_tutorial = show_tutorial
+            db.commit()
+        return {"message": "User updated"}
+    raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 @router.post("/user/{user_id}/referral")
 async def send_referral(user_id: str, email: str, user=Depends(get_user_id)):
     if user_id == user.get("user_id"):
@@ -139,6 +157,7 @@ async def outlook_callback(callback: Callback):
 
         if not user:
             # Check if this user's email exists in any other user's referrals
+            waitlist = True
             try:
                 referred = (
                     db.query(User)
@@ -149,11 +168,21 @@ async def outlook_callback(callback: Callback):
             except Exception as e:
                 print(e)
                 referred = None
+
+            try:
+                off_waitlist = (
+                    db.query(OffWaitlist).filter(OffWaitlist.email == user_info["email"]).first()
+                )
+            except Exception as e:
+                print(e)
+                off_waitlist = None
+
+            waitlist = off_waitlist is None and referred is None
             user = User(
                 email=user_info["mail"],
                 name=user_info.get("displayName"),
                 outlook_id=user_info["id"],
-                waitlisted=referred is None,
+                waitlisted=waitlist,
             )
             notification = _create_subscription(user)
             db.add(notification)
@@ -261,6 +290,7 @@ async def google_callback(callback: Callback):
         # Create user if not found
         if not user:
             # Check if this user's email exists in any other user's referrals
+            waitlist = True
             try:
                 referred = (
                     db.query(User)
@@ -272,6 +302,15 @@ async def google_callback(callback: Callback):
                 print(e)
                 referred = None
 
+            try:
+                off_waitlist = (
+                    db.query(OffWaitlist).filter(OffWaitlist.email == user_info["email"]).first()
+                )
+            except Exception as e:
+                print(e)
+                off_waitlist = None
+
+            waitlist = off_waitlist is None and referred is None
             # If found, we can use this information later for referral tracking
             # or to automatically connect users who were referred
             user = User(
@@ -279,7 +318,7 @@ async def google_callback(callback: Callback):
                 google_id=user_info["id"],
                 name=user_info.get("name"),
                 profile_pic=user_info.get("picture"),
-                waitlisted=referred is None,
+                waitlisted=waitlist,
             )
             notification = _create_subscription(user)
             db.add(notification)

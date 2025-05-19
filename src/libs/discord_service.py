@@ -1,6 +1,7 @@
 def send_discord_message(message: str, channel: str):
-    import requests
     import json
+
+    import requests
 
     # Prepare the payload for Discord webhook
     payload = {"content": message}

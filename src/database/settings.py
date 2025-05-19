@@ -1,10 +1,9 @@
-from datetime import datetime
 import uuid
+from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import JSON, UUID, Column, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, relationship
 
 from src.database.db import Base
 from src.libs.types import EmailFolder

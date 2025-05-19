@@ -3,11 +3,11 @@ from typing import Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from src.database import User, Settings
+from src.database import Settings, User
 from src.database.db import get_db
 from src.database.vectory_db import VectorDB
-from src.routes.middleware import get_user_id
 from src.libs.email_preferences import EMAIL_COMPOSER_PROMPTS
+from src.routes.middleware import get_user_id
 
 router = APIRouter()
 pinecone = VectorDB()

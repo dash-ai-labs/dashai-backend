@@ -1,6 +1,8 @@
 from typing import Dict, List
+
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
+
 from src.database.db import get_db
 from src.database.settings import Settings
 from src.libs.types import EmailFolder
