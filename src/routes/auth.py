@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 import jwt
 import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import String, cast
 
@@ -109,13 +109,15 @@ async def delete_user_route(user_id: str, user=Depends(get_user_id)):
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-@router.patch("/user/{user_id}")
-async def update_user(user_id: str, show_tutorial: bool, user=Depends(get_user_id)):
+@router.put("/user/{user_id}")
+async def update_user(user_id: str, data: dict = Body(...), user=Depends(get_user_id)):
     if user_id == user.get("user_id"):
-        with get_db() as db:
-            user = db.query(User).filter(User.id == user_id).first()
-            user.show_tutorial = show_tutorial
-            db.commit()
+        show_tutorial = data.get("show_tutorial")
+        if show_tutorial is not None:
+            with get_db() as db:
+                user = db.query(User).filter(User.id == user_id).first()
+                user.show_tutorial = show_tutorial
+                db.commit()
         return {"message": "User updated"}
     raise HTTPException(status_code=401, detail="Unauthorized")
 
