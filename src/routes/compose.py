@@ -50,7 +50,7 @@ async def create_suggestion(
         if not writing_style:
             writing_style = ""
             if settings:
-                writing_style = settings.email_preferences.get("writing_style")
+                writing_style = settings.email_preferences.get("writing_style", "")
                 writing_style += (
                     "Use emojis" if settings.email_preferences.get("use_emojis") else ""
                 )
