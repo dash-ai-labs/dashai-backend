@@ -40,10 +40,9 @@ Before running the application, you'll need to set up several services and envir
 
    - Make sure you have [Docker](https://docs.docker.com/get-docker/), [NodeJS](https://nodejs.org/en/download/), and [npm](https://www.npmjs.com/get-npm) installed.
    - Open codebase as a container in [VSCode](https://code.visualstudio.com/) or your favorite VSCode fork.
-   - Run the following commands in order to populate your dependencies and setup docker
+   - Run the backend using the following command
 
      ```
-     pip install -r requirements.txt -r requirements-dev.txt
      ./run_dev.sh
      ```
 
