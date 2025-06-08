@@ -126,7 +126,7 @@ def _calculate_sync_date(email_account: EmailAccount) -> str:
     """
     if email_account.last_sync:
         # Go back one day to catch any potentially missed emails
-        from_date = email_account.last_sync - timedelta(days=20)
+        from_date = email_account.last_sync - timedelta(days=1)
     else:
         # For first-time sync, go back BACKFILL_DAYS
         from_date = datetime.now() - timedelta(days=BACKFILL_DAYS)
@@ -320,7 +320,7 @@ def _insert_new_emails(
                     )
                     attachment = EmailAttachment(
                         email_id=email.id,
-                        attachment_id=gmail_attachment["attachmentId"],
+                        attachment_id=gmail_attachment["id"],
                         name=attachment["name"],
                         content_type=attachment["content_type"],
                         size=attachment["size"],
@@ -350,7 +350,7 @@ def _insert_new_emails(
                         )
                         attachment = EmailAttachment(
                             email_id=email.id,
-                            attachment_id=gmail_attachment["attachmentId"],
+                            attachment_id=gmail_attachment["id"],
                             name=attachment["name"],
                             content_type=attachment["content_type"],
                             size=attachment["size"],
