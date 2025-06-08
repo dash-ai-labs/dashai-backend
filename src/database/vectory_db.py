@@ -15,10 +15,10 @@ from src.libs.const import OPENAI_API_KEY, PINECONE_API_KEY
 from src.libs.rag_prompts import EMAIL_SUGGESTION_PROMPT, EMAIL_SYSTEM_PROMPT
 
 # Suppress Pinecone logs from LlamaIndex
-logging.getLogger("llama_index.vector_stores.pinecone").setLevel(logging.WARNING)
+logging.getLogger("llama_index.vector_stores.pinecone").setLevel(logging.ERROR)
 
 # Optional: Suppress Pinecone SDK logs too
-logging.getLogger("pinecone").setLevel(logging.WARNING)
+logging.getLogger("pinecone").setLevel(logging.ERROR)
 Settings.chunk_size = 8192
 
 llm = LLMOpenAI(model="gpt-4o-mini", api_key=OPENAI_API_KEY)
