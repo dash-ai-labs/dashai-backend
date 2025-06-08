@@ -36,3 +36,14 @@ class OutlookMessage(AbstractMessage):
 
     def get_is_read(self):
         return self.message.is_read
+
+    def get_attachments(self):
+        if self.message.attachments:
+            return [
+                {
+                    "name": attachment.name,
+                    "id": attachment.id,
+                }
+                for attachment in self.message.attachments
+            ]
+        return []

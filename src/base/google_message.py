@@ -52,6 +52,24 @@ class Message(AbstractMessage):
         else:
             return []
 
+    def get_attachments(self):
+        attachment_ids = []
+        if (
+            "body" in self._message_dict["payload"].keys()
+            and "attachmentId" in self._message_dict["payload"]["body"].keys()
+        ):
+            attachment_ids.append(
+                {
+                    "name": self._message_dict["payload"]["filename"],
+                    "id": self._message_dict["payload"]["body"]["attachmentId"],
+                }
+            )
+        if "parts" in self._message_dict["payload"].keys():
+            attachment_ids.extend(
+                Message._get_attachment_ids(payload=self._message_dict["payload"])
+            )
+        return attachment_ids
+
     def get_subject(self):
         return self.get_header_field_from_message(field="Subject")
 
@@ -185,6 +203,21 @@ class Message(AbstractMessage):
             )
         else:
             return ""
+
+    @staticmethod
+    def _get_attachment_ids(payload):
+        attachment_ids = []
+        if "parts" in payload.keys():
+            for part in payload["parts"]:
+                attachment_ids.extend(Message._get_attachment_ids(payload=part))
+        if "body" in payload.keys() and "attachmentId" in payload["body"].keys():
+            attachment_ids.append(
+                {
+                    "name": payload["filename"],
+                    "id": payload["body"]["attachmentId"],
+                }
+            )
+        return attachment_ids
 
     @staticmethod
     def _strip_tags(html):

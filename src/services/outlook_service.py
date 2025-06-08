@@ -149,6 +149,27 @@ class OutlookService:
             print("Error getting message: ", e)
             return None
 
+    async def get_attachments(self, message_id: str):
+        try:
+            url = f"https://graph.microsoft.com/v1.0/me/messages/{message_id}/attachments"
+            headers = {"Authorization": f"Bearer {self.token.get_token().token}"}
+            response = requests.get(url, headers=headers)
+            return response.json().get("value", [])
+        except Exception as e:
+            print("Error getting attachments: ", e)
+            return []
+
+    async def get_attachment(self, message_id: str, attachment_id: str):
+        try:
+            return (
+                await self.client.me.messages.by_message_id(message_id)
+                .attachments.by_attachment_id(attachment_id)
+                .get()
+            )
+        except Exception as e:
+            print("Error getting attachment: ", e)
+            return None
+
     async def mark_as_read(self, message_id: str):
         try:
             msg_update = Message()

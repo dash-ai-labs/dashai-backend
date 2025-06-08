@@ -12,6 +12,7 @@ from src.base import Message
 from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
 from src.database.email_account import EmailAccountStatus, EmailProvider
+from src.database.email_attachment import EmailAttachment
 from src.database.email_label import EmailLabel
 from src.database.notification import Notification
 from src.database.settings import Settings
@@ -50,6 +51,9 @@ def ingest_email(email_account_id: str):
                 # Embed new emails
                 embed_new_emails.delay(str(email_account.user_id))
 
+                # Embed new attachments
+                embed_new_attachments.delay(str(email_account.user_id))
+
                 email_account.status = EmailAccountStatus.SUCCESS
                 db.add(email_account)
                 db.commit()
@@ -61,7 +65,7 @@ def ingest_email(email_account_id: str):
 
 
 @shared_task(name="get_new_emails")
-def get_new_emails():
+def get_new_emails(user_id: str = None):
     """
     Synchronize new emails for all email accounts with robust error handling and logging.
 
@@ -74,7 +78,12 @@ def get_new_emails():
     """
     try:
         with get_db() as db:
-            all_email_accounts = db.query(EmailAccount).all()
+            if user_id:
+                all_email_accounts = (
+                    db.query(EmailAccount).filter(EmailAccount.user_id == user_id).all()
+                )
+            else:
+                all_email_accounts = db.query(EmailAccount).all()
 
             for email_account in all_email_accounts:
                 if email_account.user.waitlisted:
@@ -117,7 +126,7 @@ def _calculate_sync_date(email_account: EmailAccount) -> str:
     """
     if email_account.last_sync:
         # Go back one day to catch any potentially missed emails
-        from_date = email_account.last_sync - timedelta(days=1)
+        from_date = email_account.last_sync - timedelta(days=20)
     else:
         # For first-time sync, go back BACKFILL_DAYS
         from_date = datetime.now() - timedelta(days=BACKFILL_DAYS)
@@ -193,7 +202,7 @@ def _process_outlook_folder(
         existing_messages = _get_existing_messages(db, message_ids)
         new_message_ids = set(message_ids) - existing_messages
         new_messages = [message for message in messages if message.id not in existing_messages]
-        _insert_new_outlook_emails(db, email_account, new_messages, folder)
+        _insert_new_outlook_emails(db, email_account, new_messages, folder, outlook_service)
         return new_message_ids
     else:
         logger.info(f"No new {folder.value} emails found for {email_account.id}")
@@ -290,6 +299,7 @@ def _insert_new_emails(
         new_message_ids (Set[str]): Set of new message IDs to process
     """
     emails_created: List[Email] = []
+    attachments_created: List[EmailAttachment] = []
     settings: Settings = Settings.get_or_create_settings(db, email_account.id)
 
     for message_id in new_message_ids:
@@ -300,9 +310,22 @@ def _insert_new_emails(
                 email_address in message.get_from()
                 for email_address in settings.email_list[EmailFolder.INBOX]
             ):
-                emails_created.append(
-                    Email(email_account=email_account, message=message, folder=EmailFolder.INBOX)
+                email = Email(
+                    email_account=email_account, message=message, folder=EmailFolder.INBOX
                 )
+                emails_created.append(email)
+                for attachment in message.get_attachments():
+                    gmail_attachment = gmail_service.get_attachment(
+                        message_id=message_id, attachment_id=attachment["id"]
+                    )
+                    attachment = EmailAttachment(
+                        email_id=email.id,
+                        attachment_id=gmail_attachment["attachmentId"],
+                        name=attachment["name"],
+                        content_type=attachment["content_type"],
+                        size=attachment["size"],
+                    )
+                    attachments_created.append(attachment)
             elif any(
                 email_address in message.get_from()
                 for email_address in settings.email_list[EmailFolder.SPAM]
@@ -318,9 +341,21 @@ def _insert_new_emails(
                     Email(email_account=email_account, message=message, folder=EmailFolder.TRASH)
                 )
             else:
-                emails_created.append(
-                    Email(email_account=email_account, message=message, folder=folder)
-                )
+                email = Email(email_account=email_account, message=message, folder=folder)
+                emails_created.append(email)
+                if folder == EmailFolder.INBOX or folder == EmailFolder.SENT:
+                    for attachment in message.get_attachments():
+                        gmail_attachment = gmail_service.get_attachment(
+                            message_id=message_id, attachment_id=attachment["id"]
+                        )
+                        attachment = EmailAttachment(
+                            email_id=email.id,
+                            attachment_id=gmail_attachment["attachmentId"],
+                            name=attachment["name"],
+                            content_type=attachment["content_type"],
+                            size=attachment["size"],
+                        )
+                        attachments_created.append(attachment)
 
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
@@ -347,6 +382,7 @@ def _insert_new_outlook_emails(
     email_account: EmailAccount,
     new_messages: list[OutlookMessage],
     folder: EmailFolder,
+    outlook_service: OutlookService,
 ):
     """
     Insert new Outlook emails in chunks.
@@ -357,6 +393,7 @@ def _insert_new_outlook_emails(
         new_messages (List[any]): List of new messages to process
     """
     emails_created: List[Email] = []
+    attachments_created: List[EmailAttachment] = []
     settings: Settings = Settings.get_or_create_settings(db, email_account.id)
     for message in new_messages:
         try:
@@ -365,9 +402,22 @@ def _insert_new_outlook_emails(
                 email_address in message.get_from()
                 for email_address in settings.email_list[EmailFolder.INBOX]
             ):
-                emails_created.append(
-                    Email(email_account=email_account, message=message, folder=EmailFolder.INBOX)
+                email = Email(
+                    email_account=email_account, message=message, folder=EmailFolder.INBOX
                 )
+                emails_created.append(email)
+                for attachment in asyncio.run(
+                    outlook_service.get_attachments(message.get_email_id())
+                ):
+                    outlook_attachment = EmailAttachment(
+                        email_id=email.id,
+                        attachment_id=attachment["id"],
+                        name=attachment["name"],
+                        content_type=attachment["contentType"],
+                        size=attachment["size"],
+                    )
+                    attachments_created.append(outlook_attachment)
+
             elif any(
                 email_address in message.get_from()
                 for email_address in settings.email_list[EmailFolder.SPAM]
@@ -383,18 +433,30 @@ def _insert_new_outlook_emails(
                     Email(email_account=email_account, message=message, folder=EmailFolder.TRASH)
                 )
             else:
-                emails_created.append(
-                    Email(email_account=email_account, message=message, folder=folder)
-                )
+                email = Email(email_account=email_account, message=message, folder=folder)
+                emails_created.append(email)
+                if folder == EmailFolder.INBOX or folder == EmailFolder.SENT:
+                    for attachment in asyncio.run(
+                        outlook_service.get_attachments(message.get_email_id())
+                    ):
+                        outlook_attachment = EmailAttachment(
+                            email_id=email.id,
+                            attachment_id=attachment["id"],
+                            name=attachment["name"],
+                            content_type=attachment["contentType"],
+                            size=attachment["size"],
+                        )
+                        attachments_created.append(outlook_attachment)
 
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
-                _commit_emails(db, emails_created)
+                _commit_emails(db, emails_created, attachments_created)
                 if email_account.status != EmailAccountStatus.SUCCESS:
                     email_account.status = EmailAccountStatus.SUCCESS
                     db.add(email_account)
                     db.commit()
                 emails_created = []
+                attachments_created = []
         except Exception as e:
             logger.warning(
                 f"Failed to process message {message.id} for account {email_account.id}: {e}",
@@ -402,10 +464,10 @@ def _insert_new_outlook_emails(
             )
 
     if emails_created:
-        _commit_emails(db, emails_created)
+        _commit_emails(db, emails_created, attachments_created)
 
 
-def _commit_emails(db: Session, emails: List[Email]):
+def _commit_emails(db: Session, emails: List[Email], attachments: List[EmailAttachment] = None):
     """
     Commit emails to the database with error handling.
 
@@ -415,6 +477,8 @@ def _commit_emails(db: Session, emails: List[Email]):
     """
     try:
         db.add_all(emails)
+        if attachments:
+            db.add_all(attachments)
         db.commit()
         logger.info(f"Committed {len(emails)} new emails")
     except SQLAlchemyError as commit_error:
@@ -444,7 +508,10 @@ def _finalize_account_sync(db: Session, email_account: EmailAccount):
 @shared_task(name="embed_new_emails")
 def embed_new_emails(user_id: str = None):
     with get_db() as db:
-        users = db.query(User).all()
+        if user_id:
+            users = [db.query(User).filter(User.id == user_id).first()]
+        else:
+            users = db.query(User).all()
         for user in users:
             user_id = user.id
             one_week_ago = datetime.now() - timedelta(days=7)
@@ -489,6 +556,97 @@ def embed_new_emails(user_id: str = None):
                     db.add(email)
             db.commit()
             print("Finished generating summaries.")
+
+
+@shared_task(name="embed_new_attachments")
+def embed_new_attachments(user_id: str = None):
+    with get_db() as db:
+        users = db.query(User).all()
+        for user in users:
+            user_id = user.id
+
+            ##### Gmail #####
+            print("Embedding new attachments for Gmail for user: ", user_id)
+            email_accounts = (
+                db.query(EmailAccount)
+                .filter(
+                    EmailAccount.user_id == user_id, EmailAccount.provider == EmailProvider.GMAIL
+                )
+                .all()
+            )
+            for email_account in email_accounts:
+                gmail_service = GmailService(email_account.token)
+                try:
+                    attachments = (
+                        db.query(EmailAttachment)
+                        .filter(
+                            EmailAttachment.email.email_account_id == email_account.id,
+                            EmailAttachment.processed == False,
+                        )
+                        .all()
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Error getting attachments for user {user_id}: {e}", exc_info=True
+                    )
+                    continue
+
+                if attachments and len(attachments) > 0:
+                    for attachment in attachments:
+                        try:
+                            attachment.embed_and_store(
+                                user_id=user_id,
+                                email_id=attachment.email_id,
+                                attachment=attachment,
+                                gmail_service=gmail_service,
+                            )
+                            attachment.processed = True
+                            db.add(attachment)
+                        except Exception as e:
+                            logger.error(
+                                f"Error embedding attachment for user {user_id}: {e}", exc_info=True
+                            )
+                            continue
+                    db.commit()
+
+            ##### Outlook #####
+            print("Embedding new attachments for Outlook for user: ", user_id)
+            email_accounts = (
+                db.query(EmailAccount)
+                .filter(
+                    EmailAccount.user_id == user_id, EmailAccount.provider == EmailProvider.OUTLOOK
+                )
+                .all()
+            )
+            for email_account in email_accounts:
+                outlook_service = OutlookService(email_account.token)
+                attachments = (
+                    db.query(EmailAttachment)
+                    .filter(
+                        EmailAttachment.email.email_account_id == email_account.id,
+                        EmailAttachment.processed == False,
+                    )
+                    .all()
+                )
+                if attachments and len(attachments) > 0:
+                    for attachment in attachments:
+                        try:
+                            attachment.embed_and_store(
+                                user_id=user_id,
+                                email_id=attachment.email_id,
+                                attachment=attachment,
+                                outlook_service=outlook_service,
+                            )
+                            attachment.processed = True
+                            db.add(attachment)
+                        except Exception as e:
+                            logger.error(
+                                f"Error embedding attachment for user {user_id}: {e}", exc_info=True
+                            )
+                            continue
+                    db.commit()
+
+            print("Finished embedding new attachments for user: ", user_id)
 
 
 @shared_task(name="delete_user")

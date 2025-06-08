@@ -66,6 +66,10 @@ class AbstractMessage(ABC):
     def get_raw_content(self):
         pass
 
+    @abstractmethod
+    def get_attachments(self):
+        pass
+
     def get_thread_id(self):
         pass
 
@@ -90,4 +94,5 @@ class AbstractMessage(ABC):
             "content": self.get_content(),
             "raw_content": self.get_raw_content(),
             "date": self.get_date(),
+            "attachments": self.get_attachments(),
         }

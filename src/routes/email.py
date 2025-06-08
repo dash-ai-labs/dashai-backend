@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
+from src.celery_tasks.tasks import get_new_emails
 from src.database import Email, EmailAccount, EmailLabel, VectorDB, get_db
 from src.libs.types import EmailData, EmailFolder
 from src.routes.middleware import get_user_id
@@ -58,6 +59,7 @@ async def get_emails(
 
     if user_id == user.get("user_id"):
         with get_db() as db:
+            get_new_emails.delay(user_id)
             if account:
                 email_account = (
                     db.query(EmailAccount)

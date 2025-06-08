@@ -61,6 +61,7 @@ class Email(Base):
     email_labels = relationship(
         "EmailLabel", secondary=email_lable_association_table, back_populates="emails"
     )
+    attachments = relationship("EmailAttachment", back_populates="email")
     __table_args__ = (
         UniqueConstraint("email_account_id", "email_id", name="unique_email_account_id_email_id"),
     )
@@ -86,6 +87,7 @@ class Email(Base):
             self.thread_id = message.get_thread_id()
             self.email_account_id = email_account.id
             self.folder = folder.value
+            self.id = uuid.uuid4()
         elif isinstance(message, OutlookMessage):
             self.sender = message.get_from()
             self.sender_name = message.get_from_name()
@@ -98,6 +100,7 @@ class Email(Base):
             self.raw_content = message.get_raw_content()
             self.email_account_id = email_account.id
             self.folder = folder.value
+            self.id = uuid.uuid4()
 
         return self
 
@@ -119,6 +122,7 @@ class Email(Base):
             "is_read",
             "folder",
             "email_account_id",
+            "attachments",
         ],
     ):
 
