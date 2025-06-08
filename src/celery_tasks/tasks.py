@@ -278,7 +278,7 @@ def _get_existing_messages(db: Session, message_ids: List[str]) -> Set[str]:
         Set[str]: Set of existing message IDs
     """
     return {
-        email_id for (email_id,) in db.query(Email.email_id).filter(Email.email_id.in_(message_ids))
+        email_id for email_id, in db.query(Email.email_id).filter(Email.email_id.in_(message_ids))
     }
 
 
