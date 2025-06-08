@@ -96,7 +96,7 @@ class EmailAttachment(Base):
                     message_id=email_id, attachment_id=attachment.attachment_id
                 )
             )
-            attachment_data = base64.urlsafe_b64decode(outlook_attachment.content_bytes)
+            attachment_data = base64.urlsafe_b64decode(outlook_attachment["contentBytes"])
             filepath = f"attachments/{user_id}/{email_id}/{attachment.name}.{attachment.content_type.split('/')[1]}"
 
         try:
