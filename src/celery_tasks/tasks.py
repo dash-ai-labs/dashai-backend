@@ -612,7 +612,7 @@ def embed_new_attachments(user_id: str = None):
                         try:
                             attachment.embed_and_store(
                                 user_id=user_id,
-                                email_id=attachment.email_id,
+                                email_id=attachment.email.email_id,
                                 attachment=attachment,
                                 gmail_service=gmail_service,
                             )
@@ -650,7 +650,7 @@ def embed_new_attachments(user_id: str = None):
                         try:
                             attachment.embed_and_store(
                                 user_id=user_id,
-                                email_id=attachment.email_id,
+                                email_id=attachment.email.email_id,
                                 attachment=attachment,
                                 outlook_service=outlook_service,
                             )
