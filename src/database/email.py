@@ -362,20 +362,11 @@ class Email(Base):
         try:
             if email.processed:
                 return True
-            # If email has content, create a document
-            print("Embedding email: ", email.email_id)
             if email.content:
                 pinecone.insert(email._create_document(), user_id)
+                email.processed = True
+                return True
 
         except Exception as e:
             print(e)
             return False
-
-        try:
-            email.processed = True
-            return True
-        except Exception as e:
-            print(
-                "Error updating emails with ids: {}".format(email.email_id),
-                e,
-            )
