@@ -1,10 +1,6 @@
-import logging
-
 from openai import OpenAI
 
 from src.libs.const import OPENAI_API_KEY
-
-logging.getLogger("openai").setLevel(logging.WARNING)
 
 
 def summarize_text(content, name):

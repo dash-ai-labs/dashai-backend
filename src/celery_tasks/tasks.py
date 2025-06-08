@@ -28,9 +28,16 @@ BACKFILL_DAYS = 3
 CHUNK_SIZE = 100  # Define the size of each chunk
 
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.WARNING, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.WARNING)
+
+# Silence specific noisy loggers
+logging.getLogger("llama_index").setLevel(logging.ERROR)
+logging.getLogger("openai").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.WARNING)  # openai uses httpx under the hood
+logging.getLogger("pinecone").setLevel(logging.ERROR)
 
 
 @shared_task(name="ingest_email")
