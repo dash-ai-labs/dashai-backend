@@ -171,14 +171,15 @@ def _process_gmail_folder(
         existing_messages = _get_existing_messages(db, message_ids, email_account.id)
 
         # Identify new messages
-        new_message_ids = set(message_ids) - existing_messages
+        new_message_ids = set(message_ids) - set(existing_messages)
         if "1975073a21b0cdff" in message_ids:
             print("existing_messages", existing_messages)
             print("message_ids", message_ids)
             print("new_message_ids", new_message_ids)
 
         # Process and insert new emails in chunks
-        _insert_new_emails(db, gmail_service, email_account, new_message_ids, folder)
+        if len(new_message_ids) > 0:
+            _insert_new_emails(db, gmail_service, email_account, new_message_ids, folder)
     else:
         return set()
 
@@ -211,9 +212,10 @@ def _process_outlook_folder(
     if len(messages) > 0:
         message_ids = [message.id for message in messages]
         existing_messages = _get_existing_messages(db, message_ids, email_account.id)
-        new_message_ids = set(message_ids) - existing_messages
+        new_message_ids = set(message_ids) - set(existing_messages)
         new_messages = [message for message in messages if message.id not in existing_messages]
-        _insert_new_outlook_emails(db, email_account, new_messages, folder, outlook_service)
+        if len(new_message_ids) > 0:
+            _insert_new_outlook_emails(db, email_account, new_messages, folder, outlook_service)
         return new_message_ids
     else:
         logger.info(f"No new {folder.value} emails found for {email_account.id}")
