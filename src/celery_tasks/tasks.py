@@ -554,6 +554,7 @@ def embed_new_emails(user_id: str = None):
                 response = Email.embed_and_store(user_id=user_id, email=email)
                 processed_email_count += 1
                 if response:
+                    email.processed = True
                     embedded_emails.append(email)
                     db.add(email)
                     db.commit()

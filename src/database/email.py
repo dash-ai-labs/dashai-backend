@@ -364,7 +364,6 @@ class Email(Base):
                 return True
             if email.content:
                 pinecone.insert(email._create_document(), user_id)
-                email.processed = True
                 return True
 
         except Exception as e:
