@@ -23,7 +23,7 @@ services:
 
   celery_worker:
     build: .
-    command: celery -A src.celery_config:celery worker -l info --pool=threads --concurrency=4
+    command: celery -A src.celery_config:celery worker -l info --pool=threads --concurrency=2
     env_file:
       - ./.env
     depends_on:
