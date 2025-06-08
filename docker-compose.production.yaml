@@ -38,6 +38,8 @@ services:
         limits:
           cpus: '2'
           memory: 14G
+    volumes:
+      - /tmp:/temp_file_storage
         
   celery_beat:
     build: .
@@ -53,6 +55,9 @@ services:
           memory: 512M
         reservations:
           memory: 256M
+    volumes:
+      - /tmp:/temp_file_storage
+
 networks:
   shared-network:
     name: shared_network

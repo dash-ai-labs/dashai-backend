@@ -39,7 +39,7 @@ Before running the application, you'll need to set up several services and envir
 1. **Setup Local Services with Dev Container and Docker**
 
    - Make sure you have [Docker](https://docs.docker.com/get-docker/), [NodeJS](https://nodejs.org/en/download/), and [npm](https://www.npmjs.com/get-npm) installed.
-   - Open codebase as a container in [VSCode](https://code.visualstudio.com/) or your favorite VSCode fork.
+   - Open codebase as a container in [VSCode](https://code.visualstudio.com/) or your favorite VSCode fork using `Cmd + Shift + P`
    - Run the backend using the following command
 
      ```

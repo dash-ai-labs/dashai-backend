@@ -81,6 +81,15 @@ class GmailService:
     def get_message(self, message_id, user_id="me"):
         return self._service.users().messages().get(userId=user_id, id=message_id).execute()
 
+    def get_attachment(self, message_id, attachment_id, user_id="me"):
+        return (
+            self._service.users()
+            .messages()
+            .attachments()
+            .get(userId=user_id, messageId=message_id, id=attachment_id)
+            .execute()
+        )
+
     def send_message(self, message):
         return self._service.users().messages().send(userId="me", body=message).execute()
 
