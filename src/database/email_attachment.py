@@ -1,19 +1,20 @@
 import asyncio
-from datetime import datetime, timedelta
+import base64
 import json
 import uuid
-import base64
+from datetime import datetime, timedelta
+
+from google.cloud import storage
+from llama_index.core import SimpleDirectoryReader
 from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
-from google.cloud import storage
 
 from src.database.db import Base
 from src.database.email_account import EmailProvider
-from src.services.outlook_service import OutlookService
-from src.services.gmail_service import GmailService
-from src.libs.const import GCP_BUCKET_NAME, GCP_BUCKET_CREDENTIALS, STAGE
 from src.database.vectory_db import VectorDB
-from llama_index.core import SimpleDirectoryReader
+from src.libs.const import GCP_BUCKET_CREDENTIALS, GCP_BUCKET_NAME, STAGE
+from src.services.gmail_service import GmailService
+from src.services.outlook_service import OutlookService
 
 pinecone = VectorDB()
 
