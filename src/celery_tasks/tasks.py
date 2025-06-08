@@ -579,8 +579,9 @@ def embed_new_attachments(user_id: str = None):
                 try:
                     attachments = (
                         db.query(EmailAttachment)
+                        .join(Email)
                         .filter(
-                            EmailAttachment.email.email_account_id == email_account.id,
+                            Email.email_account_id == email_account.id,
                             EmailAttachment.processed == False,
                         )
                         .all()
@@ -622,8 +623,9 @@ def embed_new_attachments(user_id: str = None):
                 outlook_service = OutlookService(email_account.token)
                 attachments = (
                     db.query(EmailAttachment)
+                    .join(Email)
                     .filter(
-                        EmailAttachment.email.email_account_id == email_account.id,
+                        Email.email_account_id == email_account.id,
                         EmailAttachment.processed == False,
                     )
                     .all()
