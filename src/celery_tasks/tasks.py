@@ -172,6 +172,10 @@ def _process_gmail_folder(
 
         # Identify new messages
         new_message_ids = set(message_ids) - existing_messages
+        if "1975073a21b0cdff" in message_ids:
+            print("existing_messages", existing_messages)
+            print("message_ids", message_ids)
+            print("new_message_ids", new_message_ids)
 
         # Process and insert new emails in chunks
         _insert_new_emails(db, gmail_service, email_account, new_message_ids, folder)
