@@ -548,14 +548,12 @@ def embed_new_emails(user_id: str = None):
 
             # Process emails in batches of 20
             print("Embedding emails and storing in VectorDB for user: ", user_id)
-            embedded_emails = []
             processed_email_count = 0
             for email in emails:
                 response = Email.embed_and_store(user_id=user_id, email=email)
                 processed_email_count += 1
                 if response:
                     email.processed = True
-                    embedded_emails.append(email)
                     db.add(email)
                     db.commit()
 
