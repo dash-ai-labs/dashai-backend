@@ -161,7 +161,7 @@ def _process_gmail_folder(
         message_ids = [message["id"] for message in messages]
 
         # Check for existing messages
-        existing_messages = _get_existing_messages(db, message_ids)
+        existing_messages = _get_existing_messages(db, message_ids, email_account.id)
 
         # Identify new messages
         new_message_ids = set(message_ids) - existing_messages
@@ -199,7 +199,7 @@ def _process_outlook_folder(
 
     if len(messages) > 0:
         message_ids = [message.id for message in messages]
-        existing_messages = _get_existing_messages(db, message_ids)
+        existing_messages = _get_existing_messages(db, message_ids, email_account.id)
         new_message_ids = set(message_ids) - existing_messages
         new_messages = [message for message in messages if message.id not in existing_messages]
         _insert_new_outlook_emails(db, email_account, new_messages, folder, outlook_service)
@@ -266,7 +266,7 @@ def _validate_token(email_account: EmailAccount) -> Token:
     return email_account.token
 
 
-def _get_existing_messages(db: Session, message_ids: List[str]) -> Set[str]:
+def _get_existing_messages(db: Session, message_ids: List[str], email_account_id: str) -> Set[str]:
     """
     Retrieve existing message IDs from the database.
 
@@ -278,7 +278,10 @@ def _get_existing_messages(db: Session, message_ids: List[str]) -> Set[str]:
         Set[str]: Set of existing message IDs
     """
     return {
-        email_id for email_id, in db.query(Email.email_id).filter(Email.email_id.in_(message_ids))
+        email_id
+        for email_id, in db.query(Email.email_id).filter(
+            Email.email_id.in_(message_ids), Email.email_account_id == email_account_id
+        )
     }
 
 
