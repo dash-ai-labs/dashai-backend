@@ -9,9 +9,9 @@ from src.database.db import Base
 
 
 class MembershipStatus(str, PyEnum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    TRIAL = "trial"
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+    TRIAL = "TRIAL"
 
 
 class User(Base):
