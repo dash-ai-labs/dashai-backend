@@ -16,6 +16,7 @@ from src.database.email_attachment import EmailAttachment
 from src.database.email_label import EmailLabel
 from src.database.notification import Notification
 from src.database.settings import Settings
+from src.database.user import MembershipStatus
 from src.libs.const import DISCORD_USER_ALERTS_CHANNEL
 from src.libs.discord_service import send_discord_message
 from src.libs.text_utils import summarize_text
@@ -93,7 +94,10 @@ def get_new_emails(user_id: str = None):
                 all_email_accounts = db.query(EmailAccount).all()
 
             for email_account in all_email_accounts:
-                if email_account.user.waitlisted:
+                if (
+                    email_account.user.waitlisted
+                    or email_account.user.membership_status != MembershipStatus.ACTIVE
+                ):
                     continue
                 try:
                     # Determine date range for email fetch
@@ -529,6 +533,8 @@ def embed_new_emails(user_id: str = None):
         else:
             users = db.query(User).all()
         for user in users:
+            if user.membership_status == MembershipStatus.INACTIVE:
+                continue
             user_id = user.id
             one_week_ago = datetime.now() - timedelta(days=7)
             emails = (
@@ -579,7 +585,8 @@ def embed_new_attachments(user_id: str = None):
         users = db.query(User).all()
         for user in users:
             user_id = user.id
-
+            if user.membership_status == MembershipStatus.INACTIVE:
+                continue
             ##### Gmail #####
             print("Embedding new attachments for Gmail for user: ", user_id)
             email_accounts = (

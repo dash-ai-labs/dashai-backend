@@ -1,10 +1,17 @@
 import uuid
 from datetime import datetime
+from enum import Enum as PyEnum
 
 from sqlalchemy import JSON, UUID, Boolean, Column, DateTime, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from src.database.db import Base
+
+
+class MembershipStatus(str, PyEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    TRIAL = "trial"
 
 
 class User(Base):
@@ -32,6 +39,8 @@ class User(Base):
     waitlisted = Column(Boolean, default=True)
     referrals = Column(JSON, default=[])
     show_tutorial = Column(Boolean, default=True)
+    phone_number = Column(String, nullable=True)
+    membership_status = Column(String, default=MembershipStatus.ACTIVE.value)
 
     def to_dict(self):
         return {
@@ -43,4 +52,6 @@ class User(Base):
             "email_accounts": [email_account.to_dict() for email_account in self.email_accounts],
             "waitlisted": self.waitlisted,
             "show_tutorial": self.show_tutorial,
+            "phone_number": self.phone_number,
+            "membership_status": self.membership_status,
         }

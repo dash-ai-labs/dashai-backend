@@ -41,7 +41,7 @@ class EmailAttachment(Base):
     def url(self):
         if STAGE == "production":
             bucket = storage_client.bucket(GCP_BUCKET_NAME)
-            blob = bucket.blob(self.id)
+            blob = bucket.blob(self.filepath)
             url = blob.generate_signed_url(
                 version="v4", expiration=timedelta(minutes=10), method="GET"
             )
