@@ -14,6 +14,7 @@ from sqlalchemy import String, cast
 from src.celery_tasks import delete_user, ingest_email
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
 from src.database.notification import Notification
+from src.database.user import MembershipStatus
 from src.database.waitlist import OffWaitlist
 from src.libs.const import (
     DISCORD_USER_ALERTS_CHANNEL,
@@ -185,6 +186,7 @@ async def outlook_callback(callback: Callback):
                 name=user_info.get("displayName"),
                 outlook_id=user_info["id"],
                 waitlisted=waitlist,
+                membership_status=MembershipStatus.TRIAL,
             )
             notification = _create_subscription(user)
             db.add(notification)
@@ -321,6 +323,7 @@ async def google_callback(callback: Callback):
                 name=user_info.get("name"),
                 profile_pic=user_info.get("picture"),
                 waitlisted=waitlist,
+                membership_status=MembershipStatus.TRIAL,
             )
             notification = _create_subscription(user)
             db.add(notification)
