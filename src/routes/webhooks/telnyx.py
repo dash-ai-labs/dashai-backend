@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, Request
 import requests
 
 from src.celery_tasks.call_tasks import hangup_call
-from src.database.cache import cache
 from src.libs.const import PHONE_NUMBER_NOT_FOUND_MESSAGE, TELNYX_API_KEY
 from src.routes.middleware import check_secret_token
 import telnyx
