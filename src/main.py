@@ -15,6 +15,7 @@ from src.routes import (
     proxy_router,
     settings_router,
     task_router,
+    telnyx_router,
 )
 
 load_dotenv()
@@ -111,6 +112,7 @@ app.include_router(compose_router)
 app.include_router(task_router)
 app.include_router(notification_router)
 app.include_router(settings_router)
+app.include_router(telnyx_router, prefix="/webhooks")
 
 
 @app.get("/health")
