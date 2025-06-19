@@ -36,6 +36,7 @@ class User(Base):
     )
     notifications = relationship("Notification", back_populates="user")
     email_labels = relationship("EmailLabel", back_populates="user")
+    call_sessions = relationship("CallSession", back_populates="user")
     waitlisted = Column(Boolean, default=True)
     referrals = Column(JSON, default=[])
     show_tutorial = Column(Boolean, default=True)
