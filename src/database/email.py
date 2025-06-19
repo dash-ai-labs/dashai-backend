@@ -132,6 +132,8 @@ class Email(Base):
             for column in class_mapper(self.__class__).columns
             if column.key in allowed_columns
         }
+        if "id" in allowed_columns:
+            serialized_data["id"] = str(serialized_data["id"])
         if "email_labels" in allowed_columns:
             serialized_data["email_labels"] = [label.to_dict() for label in self.email_labels]
 
