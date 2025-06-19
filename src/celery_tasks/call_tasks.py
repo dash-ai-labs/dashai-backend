@@ -1,5 +1,6 @@
 import json
 from celery import shared_task
+from fastapi.encoders import jsonable_encoder
 
 from src.database.cache import cache
 from src.database.email_account import EmailAccount
@@ -45,7 +46,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                     f"call_control_id_{call_control_id}",
                     json.dumps(
                         [
-                            email.to_dict(
+                            jsonable_encoder(email.to_dict(
                                 allowed_columns=[
                                     "id",
                                     "sender",
@@ -55,7 +56,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                                     "summary",
                                     "snippet",
                                 ]
-                            )
+                            ))
                             for email in new_emails
                         ]
                     ),
@@ -78,7 +79,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                     f"call_control_id_{call_control_id}",
                     json.dumps(
                         [
-                            email.to_dict(
+                            jsonable_encoder(email.to_dict(
                                 allowed_columns=[
                                     "id",
                                     "sender",
@@ -88,7 +89,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                                     "summary",
                                     "snippet",
                                 ]
-                            )
+                            ))
                             for email in new_emails
                         ]
                     ),
