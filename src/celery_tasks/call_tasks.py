@@ -59,6 +59,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                             for email in new_emails
                         ]
                     ),
+                    ex=3600,
                 )
 
                 if not cache.get(phone_number):
@@ -91,6 +92,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                             for email in new_emails
                         ]
                     ),
+                    ex=3600,
                 )
 
             call_session = CallSession(

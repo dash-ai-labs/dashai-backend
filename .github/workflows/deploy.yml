@@ -41,7 +41,10 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $FASTAPI_IMAGE .
+          # Try to pull the latest image for cache
+          docker pull $FASTAPI_IMAGE || echo "No previous image found for cache"
+          # Build with cache from previous image
+          docker build --cache-from $FASTAPI_IMAGE -t $FASTAPI_IMAGE .
 
       - name: Push Docker image
         run: |
