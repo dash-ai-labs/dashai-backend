@@ -23,7 +23,9 @@ async def telnyx_name_webhook(request: Request):
     call_session_id = payload["call_session_id"]
     from_number = payload["from"]
     with get_db() as db:
+        print("from_number", from_number)
         if name := cache.get(from_number):
+            name = name.decode("utf-8") if isinstance(name, bytes) else name
             first_name = name.split(" ")[0]
             greeting_message = f"Hi {first_name}, this is Dash AI. Ready for your email brief?"
             prepare_email_brief.delay(from_number, call_control_id, call_session_id)
@@ -50,6 +52,7 @@ async def telnyx_emails_webhook(request: Request, user=Depends(check_secret_toke
     headers = request.headers
     if call_control_id := headers.get("call_control_id"):
         if emails := cache.get(f"call_control_id_{call_control_id}"):
+            emails = emails.decode("utf-8") if isinstance(emails, bytes) else emails
             return {"emails": json.loads(emails)}
         else:
             return {"message": "No emails found"}
