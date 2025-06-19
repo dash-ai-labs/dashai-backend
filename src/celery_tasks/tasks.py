@@ -23,6 +23,7 @@ from src.libs.text_utils import summarize_text
 from src.libs.types import EmailFolder
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
+from src.database.cache import cache
 
 MINUTES = 60 * 24
 BACKFILL_DAYS = 3
