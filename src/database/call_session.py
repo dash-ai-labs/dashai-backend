@@ -9,14 +9,26 @@ from src.database.db import Base
 
 
 class Action(Enum):
-    SEND_EMAIL = "SEND_EMAIL"
     RESPOND_TO_EMAIL = "RESPOND_TO_EMAIL"
 
 
 class FollowUpTask:
     email_id: str
     email_subject: str
+    email_body: str
     action: Action
+
+    def __init__(self, email_id: str, email_body: str, action: Action):
+        self.email_id = email_id
+        self.email_body = email_body
+        self.action = action
+
+    def to_dict(self):
+        return {
+            "email_id": self.email_id,
+            "email_body": self.email_body,
+            "action": self.action,
+        }
 
 
 class CallSession(Base):

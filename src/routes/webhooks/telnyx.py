@@ -3,6 +3,7 @@ import json
 import telnyx
 from fastapi import APIRouter, Depends, Request
 
+from src.database.call_session import Action, CallSession, FollowUpTask
 from src.celery_tasks.call_tasks import hangup_call, prepare_email_brief
 from src.database.cache import cache
 from src.database.db import get_db
@@ -59,3 +60,29 @@ async def telnyx_emails_webhook(request: Request, user=Depends(check_secret_toke
             return {"message": "No emails found"}
     else:
         return {"message": "Something went wrong. Please try again later."}
+
+
+@router.post("/telnyx/draft_email")
+async def telnyx_draft_email_webhook(request: Request, user=Depends(check_secret_token)):
+    headers = request.headers
+    call_control_id = headers.get("call_control_id")
+    body = await request.json()
+    data = body["data"]
+    email_id = data["email_id"]
+    body = data["body"]
+    with get_db() as db:
+        if (
+            call_session := db.query(CallSession)
+            .filter(CallSession.call_control_id == call_control_id)
+            .first()
+        ):
+            draft_response_task = FollowUpTask(
+                email_id=email_id,
+                email_body=body,
+                action=Action.RESPOND_TO_EMAIL,
+            )
+            call_session.follow_up_tasks.append(draft_response_task.to_dict())
+            db.add(call_session)
+            db.commit()
+            return {"message": "Draft email saved"}
+    return {"message": "Something went wrong. Please try again later."}
