@@ -1,7 +1,7 @@
 import json
 
 import telnyx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends, Request
 
 from src.database.call_session import Action, CallSession, FollowUpTask
 from src.celery_tasks.call_tasks import hangup_call, prepare_email_brief
@@ -63,10 +63,14 @@ async def telnyx_emails_webhook(request: Request, user=Depends(check_secret_toke
 
 
 @router.post("/telnyx/draft_email")
-async def telnyx_draft_email_webhook(request: Request, user=Depends(check_secret_token)):
+async def telnyx_draft_email_webhook(
+    request: Request, data=Body(None), user=Depends(check_secret_token)
+):
     headers = request.headers
     call_control_id = headers.get("call_control_id")
     body = await request.json()
+    print("data", data)
+    print("body", body)
     data = body["data"]
     email_id = data["email_id"]
     body = data["body"]
