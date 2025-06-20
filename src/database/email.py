@@ -123,6 +123,7 @@ class Email(Base):
             "folder",
             "email_account_id",
             "attachments",
+            "content",
         ],
     ):
 
@@ -137,9 +138,10 @@ class Email(Base):
         if "email_labels" in allowed_columns:
             serialized_data["email_labels"] = [label.to_dict() for label in self.email_labels]
 
-        serialized_data["content"] = (
-            f"/user/{self.email_account.user.id}/email/{self.email_id}/content"
-        )
+        if "content" in allowed_columns:
+            serialized_data["content"] = (
+                f"/user/{self.email_account.user.id}/email/{self.email_id}/content"
+            )
         return serialized_data
 
     def sanitized_content(self, request: Request):
