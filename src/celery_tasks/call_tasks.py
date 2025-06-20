@@ -44,7 +44,8 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                         Email.folder == EmailFolder.INBOX,
                         EmailAccount.user_id == user.id,
                     )
-                    .all().order_by(Email.created_at.desc)
+                    .order_by(Email.created_at.desc())
+                    .all()
                 )
                 cache.set(
                     f"call_control_id_{call_control_id}",
@@ -82,7 +83,8 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                         Email.date >= datetime.now() - timedelta(days=1),
                         EmailAccount.user_id == user.id,
                     )
-                    .all().order_by(Email.created_at.desc)
+                    .order_by(Email.created_at.desc())
+                    .all()
                 )
                 cache.set(
                     f"call_control_id_{call_control_id}",
