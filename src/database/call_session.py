@@ -1,9 +1,11 @@
-from enum import Enum
-from src.database.db import Base
-from sqlalchemy import ARRAY, JSON, Boolean, Column, DateTime, ForeignKey, String, UUID
-from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
+from enum import Enum
+
+from sqlalchemy import ARRAY, JSON, UUID, Boolean, Column, DateTime, ForeignKey, String
+from sqlalchemy.orm import relationship
+
+from src.database.db import Base
 
 
 class Action(Enum):

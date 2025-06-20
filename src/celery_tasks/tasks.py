@@ -11,6 +11,7 @@ from tqdm import tqdm
 from src.base import Message
 from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
+from src.database.cache import cache
 from src.database.email_account import EmailAccountStatus, EmailProvider
 from src.database.email_attachment import EmailAttachment
 from src.database.email_label import EmailLabel
@@ -23,7 +24,6 @@ from src.libs.text_utils import summarize_text
 from src.libs.types import EmailFolder
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
-from src.database.cache import cache
 
 MINUTES = 60 * 24
 BACKFILL_DAYS = 3

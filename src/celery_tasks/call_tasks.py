@@ -1,15 +1,18 @@
 import json
+from datetime import datetime, timedelta
+
+import telnyx
 from celery import shared_task
 from fastapi.encoders import jsonable_encoder
 
 from src.database.cache import cache
-from src.database.email_account import EmailAccount
-from src.database.email import Email
 from src.database.call_session import CallSession
 from src.database.db import get_db
+from src.database.email import Email
+from src.database.email_account import EmailAccount
 from src.database.user import User
 from src.libs.const import TELNYX_API_KEY
-import telnyx
+from src.libs.types import EmailFolder
 
 telnyx.api_key = TELNYX_API_KEY
 
@@ -38,6 +41,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                     .filter(
                         Email.date >= latest_call_session.created_at,
                         Email.is_read == False,
+                        Email.folder == EmailFolder.INBOX,
                         EmailAccount.user_id == user.id,
                     )
                     .all()
@@ -46,17 +50,19 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                     f"call_control_id_{call_control_id}",
                     json.dumps(
                         [
-                            jsonable_encoder(email.to_dict(
-                                allowed_columns=[
-                                    "id",
-                                    "sender",
-                                    "sender_name",
-                                    "subject",
-                                    "date",
-                                    "summary",
-                                    "snippet",
-                                ]
-                            ))
+                            jsonable_encoder(
+                                email.to_dict(
+                                    allowed_columns=[
+                                        "id",
+                                        "sender",
+                                        "sender_name",
+                                        "subject",
+                                        "date",
+                                        "summary",
+                                        "snippet",
+                                    ]
+                                )
+                            )
                             for email in new_emails
                         ]
                     ),
@@ -68,9 +74,12 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
             else:
                 new_emails = (
                     db.query(Email)
+                    .filter()
                     .join(EmailAccount, Email.email_account_id == EmailAccount.id)
                     .filter(
                         Email.is_read == False,
+                        Email.folder == EmailFolder.INBOX,
+                        Email.date >= datetime.now() - timedelta(days=1),
                         EmailAccount.user_id == user.id,
                     )
                     .all()
@@ -79,17 +88,19 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
                     f"call_control_id_{call_control_id}",
                     json.dumps(
                         [
-                            jsonable_encoder(email.to_dict(
-                                allowed_columns=[
-                                    "id",
-                                    "sender",
-                                    "sender_name",
-                                    "subject",
-                                    "date",
-                                    "summary",
-                                    "snippet",
-                                ]
-                            ))
+                            jsonable_encoder(
+                                email.to_dict(
+                                    allowed_columns=[
+                                        "id",
+                                        "sender",
+                                        "sender_name",
+                                        "subject",
+                                        "date",
+                                        "summary",
+                                        "snippet",
+                                    ]
+                                )
+                            )
                             for email in new_emails
                         ]
                     ),
@@ -99,7 +110,6 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
             call_session = CallSession(
                 user_id=user.id,
                 call_control_id=call_control_id,
-                call_session_id=call_session_id,
             )
             db.add(call_session)
             db.commit()

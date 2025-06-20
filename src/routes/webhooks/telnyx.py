@@ -1,13 +1,14 @@
 import json
+
+import telnyx
 from fastapi import APIRouter, Depends, Request
 
-from src.routes.middleware import check_secret_token
-from src.database.db import get_db
-from src.database.user import User
 from src.celery_tasks.call_tasks import hangup_call, prepare_email_brief
 from src.database.cache import cache
+from src.database.db import get_db
+from src.database.user import User
 from src.libs.const import PHONE_NUMBER_NOT_FOUND_MESSAGE, TELNYX_API_KEY
-import telnyx
+from src.routes.middleware import check_secret_token
 
 router = APIRouter()
 
