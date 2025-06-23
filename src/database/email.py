@@ -7,13 +7,11 @@ from fastapi import Request
 from fastapi.responses import HTMLResponse
 from llama_index.core import Document
 from msgraph.generated.models.body_type import BodyType
-from msgraph.generated.models.event import Recipient
+from msgraph.generated.models.email_address import EmailAddress
+from msgraph.generated.models.recipient import Recipient
 from msgraph.generated.models.item_body import ItemBody
 from msgraph.generated.models.message import Message as OutlookReplyMessage
-from msgraph.generated.models.recipient import EmailAddress
-from msgraph.generated.users.item.messages.item.reply.reply_request_builder import (
-    ReplyPostRequestBody,
-)
+
 from sqlalchemy import (
     UUID,
     Boolean,
