@@ -105,3 +105,6 @@ class GmailService:
         return (
             self._service.users().messages().modify(userId="me", id=message_id, body=body).execute()
         )
+
+    def save_draft(self, message):
+        return self._service.users().drafts().create(userId="me", body=message).execute()

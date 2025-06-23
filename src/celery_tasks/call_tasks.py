@@ -6,7 +6,7 @@ from celery import shared_task
 from fastapi.encoders import jsonable_encoder
 
 from src.database.cache import cache
-from src.database.call_session import CallSession
+from src.database.call_session import Action, CallSession
 from src.database.db import get_db
 from src.database.email import Email
 from src.database.email_account import EmailAccount
@@ -115,3 +115,35 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
             )
             db.add(call_session)
             db.commit()
+
+
+@shared_task(name="follow_up_actions")
+def follow_up_actions(call_control_id: str):
+    with get_db() as db:
+        call_sessions = (
+            db.query(CallSession)
+            .filter(CallSession.is_processed == False, CallSession.is_completed == False)
+            .all()
+        )
+        if call_sessions:
+            for call_session in call_sessions:
+                call = telnyx.Call.retrieve(call_session.call_control_id)
+                if not call["is_alive"]:
+                    call_session.is_completed = True
+                    tasks = call_session.follow_up_tasks
+                    for task in tasks:
+                        if task["action"] == Action.RESPOND_TO_EMAIL:
+                            email = db.query(Email).get(task["email_id"])
+                            if email:
+                                email.respond_to_email(task["email_body"], db)
+                        elif task["action"] == Action.MARK_AS_UNREAD:
+                            email = db.query(Email).get(task["email_id"])
+                            if email:
+                                email.mark_as_unread(db)
+                        elif task["action"] == Action.MARK_AS_READ:
+                            email = db.query(Email).get(task["email_id"])
+                            if email:
+                                email.mark_as_read(db)
+                    call_session.is_processed = True
+                    db.add(call_session)
+                    db.commit()

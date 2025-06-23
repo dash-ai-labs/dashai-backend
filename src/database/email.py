@@ -1,10 +1,19 @@
 import uuid
 from datetime import datetime
+from email.message import EmailMessage
 
 from bs4 import BeautifulSoup
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from llama_index.core import Document
+from msgraph.generated.models.body_type import BodyType
+from msgraph.generated.models.event import Recipient
+from msgraph.generated.models.item_body import ItemBody
+from msgraph.generated.models.message import Message as OutlookReplyMessage
+from msgraph.generated.models.recipient import EmailAddress
+from msgraph.generated.users.item.messages.item.reply.reply_request_builder import (
+    ReplyPostRequestBody,
+)
 from sqlalchemy import (
     UUID,
     Boolean,
@@ -235,6 +244,61 @@ class Email(Base):
         db.add(self)
         db.commit()
         return self
+
+    def _create_gmail_response(self, reply_body: str):
+        if self.subject and not self.subject.lower().startswith("re:"):
+            reply_subject = f"Re: {self.subject}"
+        else:
+            reply_subject = self.subject or "Re: (No Subject)"
+
+        email_data = EmailMessage()
+        email_data["From"] = self.email_account.email
+        email_data["To"] = self.sender
+        email_data["Subject"] = reply_subject
+        email_data["Cc"] = self.cc
+        email_data["In-Reply-To"] = self.email_id
+        email_data["References"] = self.email_id
+        email_data.set_payload(reply_body)
+        return email_data
+
+    def _create_outlook_response(self, reply_body: str):
+        message = OutlookReplyMessage()
+        message.body = ItemBody(content=reply_body, content_type=BodyType.Html)
+        message.to_recipients = [
+            Recipient(email_address=EmailAddress(address=sender, name=sender_name))
+            for sender, sender_name in zip(self.sender, self.sender_name)
+        ]
+        message.cc_recipients = [
+            Recipient(email_address=EmailAddress(address=cc)) for cc in self.cc
+        ]
+        original_subject = self.subject or ""
+        if not original_subject.lower().startswith("re:"):
+            message.subject = f"Re: {original_subject}"
+        else:
+            message.subject = original_subject
+        message.conversation_id = self.thread_id
+        message.is_draft = True
+        return message
+
+    # async def respond_to_email(self, email_body: str, db: Session):
+    #     if self.email_account.provider == EmailProvider.GMAIL:
+    #         gmail_service = GmailService(self.email_account.token)
+    #         email_data = self._create_gmail_response(email_body)
+    #         gmail_service.send_message(email_data)
+    #     elif self.email_account.provider == EmailProvider.OUTLOOK:
+    #         outlook_service = OutlookService(self.email_account.token, db)
+    #         reply_request = self._create_outlook_response(email_body)
+    #         await outlook_service.send_reply(reply_request, self.email_id)
+
+    async def draft_response(self, email_body: str, db: Session):
+        if self.email_account.provider == EmailProvider.GMAIL:
+            gmail_service = GmailService(self.email_account.token)
+            email_data = self._create_gmail_response(email_body)
+            gmail_service.save_draft(email_data)
+        elif self.email_account.provider == EmailProvider.OUTLOOK:
+            outlook_service = OutlookService(self.email_account.token, db)
+            reply_request = self._create_outlook_response(email_body)
+            await outlook_service.save_draft(reply_request)
 
     async def mark_as_read(self, db: Session):
         if self.email_account.provider == EmailProvider.GMAIL:

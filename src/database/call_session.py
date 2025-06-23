@@ -10,6 +10,8 @@ from src.database.db import Base
 
 class Action(Enum):
     RESPOND_TO_EMAIL = "RESPOND_TO_EMAIL"
+    MARK_AS_READ = "MARK_AS_READ"
+    MARK_AS_UNREAD = "MARK_AS_UNREAD"
 
 
 class FollowUpTask:
@@ -18,10 +20,16 @@ class FollowUpTask:
     email_body: str
     action: Action
 
-    def __init__(self, email_id: str, email_body: str, action: Action):
+    def __init__(
+        self, email_id: str, action: Action, email_body: str = None, email_subject: str = None
+    ):
         self.email_id = email_id
-        self.email_body = email_body
         self.action = action
+
+        if email_body:
+            self.email_body = email_body
+        if email_subject:
+            self.email_subject = email_subject
 
     def to_dict(self):
         return {
@@ -42,3 +50,4 @@ class CallSession(Base):
     call_control_id = Column(String)
     recording_url = Column(String)
     is_completed = Column(Boolean, default=False)
+    is_processed = Column(Boolean, default=False)

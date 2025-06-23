@@ -32,6 +32,10 @@ celery.conf.beat_schedule = {
         "task": "embed_new_attachments",
         "schedule": 15 * 60,  # 15 minutes
     },
+    "run-every-15-minutes-follow-up-actions": {
+        "task": "follow_up_actions",
+        "schedule": 15 * 60,  # 15 minutes
+    },
     # "run-every-day-at-7am": {  # Updated task name
     #     "task": "get_new_transactions",
     #     "schedule": crontab(hour=7, minute=0),  # Run every day at 7 AM

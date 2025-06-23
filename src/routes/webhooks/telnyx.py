@@ -3,9 +3,9 @@ import json
 import telnyx
 from fastapi import APIRouter, Body, Depends, Request
 
-from src.database.call_session import Action, CallSession, FollowUpTask
 from src.celery_tasks.call_tasks import hangup_call, prepare_email_brief
 from src.database.cache import cache
+from src.database.call_session import Action, CallSession, FollowUpTask
 from src.database.db import get_db
 from src.database.user import User
 from src.libs.const import PHONE_NUMBER_NOT_FOUND_MESSAGE, TELNYX_API_KEY
@@ -25,7 +25,6 @@ async def telnyx_name_webhook(request: Request):
     call_session_id = payload["call_session_id"]
     from_number = payload["from"]
     with get_db() as db:
-        print("from_number", from_number)
         if name := cache.get(from_number):
             name = name.decode("utf-8") if isinstance(name, bytes) else name
             first_name = name.split(" ")[0]
@@ -68,10 +67,6 @@ async def telnyx_draft_email_webhook(
 ):
     headers = request.headers
     call_control_id = headers.get("call_control_id")
-    body = await request.json()
-    print("data", data)
-    print("body", body)
-    data = body["data"]
     email_id = data["email_id"]
     body = data["body"]
     with get_db() as db:
@@ -89,4 +84,52 @@ async def telnyx_draft_email_webhook(
             db.add(call_session)
             db.commit()
             return {"message": "Draft email saved"}
+    return {"message": "Something went wrong. Please try again later."}
+
+
+@router.post("/telnyx/mark_as_read")
+async def telnyx_mark_as_read_webhook(
+    request: Request, data=Body(None), user=Depends(check_secret_token)
+):
+    headers = request.headers
+    call_control_id = headers.get("call_control_id")
+    email_id = data["email_id"]
+    with get_db() as db:
+        if (
+            call_session := db.query(CallSession)
+            .filter(CallSession.call_control_id == call_control_id)
+            .first()
+        ):
+            draft_response_task = FollowUpTask(
+                email_id=email_id,
+                action=Action.MARK_AS_READ,
+            )
+            call_session.follow_up_tasks.append(draft_response_task.to_dict())
+            db.add(call_session)
+            db.commit()
+            return {"message": "Email marked as read"}
+    return {"message": "Something went wrong. Please try again later."}
+
+
+@router.post("/telnyx/mark_as_unread")
+async def telnyx_mark_as_unread_webhook(
+    request: Request, data=Body(None), user=Depends(check_secret_token)
+):
+    headers = request.headers
+    call_control_id = headers.get("cal  l_control_id")
+    email_id = data["email_id"]
+    with get_db() as db:
+        if (
+            call_session := db.query(CallSession)
+            .filter(CallSession.call_control_id == call_control_id)
+            .first()
+        ):
+            draft_response_task = FollowUpTask(
+                email_id=email_id,
+                action=Action.MARK_AS_UNREAD,
+            )
+            call_session.follow_up_tasks.append(draft_response_task.to_dict())
+            db.add(call_session)
+            db.commit()
+            return {"message": "Email marked as unread"}
     return {"message": "Something went wrong. Please try again later."}

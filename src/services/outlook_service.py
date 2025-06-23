@@ -8,6 +8,9 @@ from msgraph.generated.models.email_address import EmailAddress
 from msgraph.generated.models.item_body import ItemBody
 from msgraph.generated.models.message import Message
 from msgraph.generated.models.recipient import Recipient
+from msgraph.generated.users.item.messages.item.reply.reply_post_request_body import (
+    ReplyPostRequestBody,
+)
 from msgraph.generated.users.item.messages.messages_request_builder import (
     MessagesRequestBuilder,
 )
@@ -239,3 +242,15 @@ class OutlookService:
         except Exception as e:
             print("Error sending email: ", e)
             raise HTTPException(status_code=500, detail="Failed to send email")
+
+    async def send_reply(
+        self,
+        reply_request: ReplyPostRequestBody,
+        message_id: str,
+    ):
+        try:
+            await self.client.me.messages.by_message_id(message_id).reply.post(reply_request)
+            return True
+        except Exception as e:
+            print("Error sending reply: ", e)
+            raise HTTPException(status_code=500, detail="Failed to send reply")
