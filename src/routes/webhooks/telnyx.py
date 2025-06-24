@@ -120,14 +120,14 @@ async def telnyx_mark_as_unread_webhook(
                 .filter(CallSession.call_control_id == call_control_id)
                 .first()
             ):
-            draft_response_task = FollowUpTask(
-                email_id=email_id,
-                action=Action.MARK_AS_UNREAD,
-            )
-            call_session.follow_up_tasks.append(draft_response_task.to_dict())
-            db.add(call_session)
-            db.commit()
-            return {"message": "Email marked as unread"}
+                draft_response_task = FollowUpTask(
+                    email_id=email_id,
+                    action=Action.MARK_AS_UNREAD,
+                )
+                call_session.follow_up_tasks.append(draft_response_task.to_dict())
+                db.add(call_session)
+                db.commit()
+                return {"message": "Email marked as unread"}
     except Exception as e:
         print("Error marking email as unread: ", e)
         return {"message": "Something went wrong. Please try again later."}
