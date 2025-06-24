@@ -26,3 +26,4 @@ def check_secret_token(request: Request):
     secret_token = request.headers.get("X-Telnyx-Secret")
     if secret_token != TELNYX_SECRET_KEY:
         raise HTTPException(status_code=401, detail="Invalid secret token")
+    return request.headers.get("call_control_id")

@@ -49,24 +49,18 @@ async def telnyx_name_webhook(request: Request):
 
 
 @router.get("/telnyx/emails")
-async def telnyx_emails_webhook(request: Request, user=Depends(check_secret_token)):
-    headers = request.headers
-    if call_control_id := headers.get("call_control_id"):
-        if emails := cache.get(f"call_control_id_{call_control_id}"):
-            emails = emails.decode("utf-8") if isinstance(emails, bytes) else emails
-            return {"emails": json.loads(emails)}
-        else:
-            return {"message": "No emails found"}
+async def telnyx_emails_webhook(request: Request, call_control_id=Depends(check_secret_token)):
+    if emails := cache.get(f"call_control_id_{call_control_id}"):
+        emails = emails.decode("utf-8") if isinstance(emails, bytes) else emails
+        return {"emails": json.loads(emails)}
     else:
-        return {"message": "Something went wrong. Please try again later."}
+        return {"message": "No emails found"}
 
 
 @router.post("/telnyx/draft_email")
 async def telnyx_draft_email_webhook(
-    request: Request, data=Body(None), user=Depends(check_secret_token)
+    request: Request, data=Body(None), call_control_id=Depends(check_secret_token)
 ):
-    headers = request.headers
-    call_control_id = headers.get("call_control_id")
     email_id = data["email_id"]
     body = data["body"]
     with get_db() as db:
@@ -89,10 +83,8 @@ async def telnyx_draft_email_webhook(
 
 @router.post("/telnyx/mark_as_read")
 async def telnyx_mark_as_read_webhook(
-    request: Request, data=Body(None), user=Depends(check_secret_token)
+    request: Request, data=Body(None), call_control_id=Depends(check_secret_token)
 ):
-    headers = request.headers
-    call_control_id = headers.get("call_control_id")
     email_id = data["email_id"]
     with get_db() as db:
         if (
@@ -113,10 +105,8 @@ async def telnyx_mark_as_read_webhook(
 
 @router.post("/telnyx/mark_as_unread")
 async def telnyx_mark_as_unread_webhook(
-    request: Request, data=Body(None), user=Depends(check_secret_token)
+    request: Request, data=Body(None), call_control_id=Depends(check_secret_token)
 ):
-    headers = request.headers
-    call_control_id = headers.get("cal  l_control_id")
     email_id = data["email_id"]
     with get_db() as db:
         if (
