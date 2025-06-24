@@ -74,7 +74,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
 
 
 @shared_task(name="follow_up_actions")
-def follow_up_actions(call_control_id: str):
+def follow_up_actions(call_control_id: str = None):
     with get_db() as db:
         call_sessions = (
             db.query(CallSession)
