@@ -76,8 +76,7 @@ async def telnyx_draft_email_webhook(
                 action=Action.RESPOND_TO_EMAIL,
             )
             follow_up_tasks = call_session.follow_up_tasks or []
-            follow_up_tasks.append(draft_response_task.to_dict())
-            call_session.follow_up_tasks = follow_up_tasks
+            call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
             flag_modified(call_session, "follow_up_tasks")
             db.add(call_session)
             db.commit()
@@ -104,8 +103,7 @@ async def telnyx_mark_as_read_webhook(
                     action=Action.MARK_AS_READ,
                 )
                 follow_up_tasks = call_session.follow_up_tasks or []
-                follow_up_tasks.append(draft_response_task.to_dict())
-                call_session.follow_up_tasks = follow_up_tasks
+                call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
                 flag_modified(call_session, "follow_up_tasks")
                 db.add(call_session)
                 db.commit()
@@ -132,8 +130,7 @@ async def telnyx_mark_as_unread_webhook(
                     action=Action.MARK_AS_UNREAD,
                 )
                 follow_up_tasks = call_session.follow_up_tasks or []
-                follow_up_tasks.append(draft_response_task.to_dict())
-                call_session.follow_up_tasks = follow_up_tasks
+                call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
                 flag_modified(call_session, "follow_up_tasks")
                 db.add(call_session)
                 db.commit()
