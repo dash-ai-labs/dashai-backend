@@ -86,20 +86,20 @@ def follow_up_actions(call_control_id: str):
                 call = telnyx.Call.retrieve(call_session.call_control_id)
                 if not call["is_alive"]:
                     call_session.is_completed = True
-                    tasks = call_session.follow_up_tasks
-                    for task in tasks:
-                        if task["action"] == Action.RESPOND_TO_EMAIL:
-                            email = db.query(Email).get(task["email_id"])
-                            if email:
-                                email.draft_response(task["email_body"], db)
-                        elif task["action"] == Action.MARK_AS_UNREAD:
-                            email = db.query(Email).get(task["email_id"])
-                            if email:
-                                email.mark_as_unread(db)
-                        elif task["action"] == Action.MARK_AS_READ:
-                            email = db.query(Email).get(task["email_id"])
-                            if email:
-                                email.mark_as_read(db)
+                    if tasks := call_session.follow_up_tasks:
+                        for task in tasks:
+                            if task["action"] == Action.RESPOND_TO_EMAIL:
+                                email = db.query(Email).get(task["email_id"])
+                                if email:
+                                    email.draft_response(task["email_body"], db)
+                            elif task["action"] == Action.MARK_AS_UNREAD:
+                                email = db.query(Email).get(task["email_id"])
+                                if email:
+                                    email.mark_as_unread(db)
+                            elif task["action"] == Action.MARK_AS_READ:
+                                email = db.query(Email).get(task["email_id"])
+                                if email:
+                                    email.mark_as_read(db)
                     call_session.is_processed = True
                     db.add(call_session)
                     db.commit()
