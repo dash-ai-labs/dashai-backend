@@ -254,3 +254,10 @@ class OutlookService:
         except Exception as e:
             print("Error sending reply: ", e)
             raise HTTPException(status_code=500, detail="Failed to send reply")
+
+    async def save_draft(self, message: Message):
+        try:
+            await self.client.me.messages.post(message)
+        except Exception as e:
+            print("Error saving draft: ", e)
+            raise HTTPException(status_code=500, detail="Failed to save draft")
