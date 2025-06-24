@@ -25,17 +25,15 @@ class FollowUpTask:
     ):
         self.email_id = email_id
         self.action = action
-
-        if email_body:
-            self.email_body = email_body
-        if email_subject:
-            self.email_subject = email_subject
+        self.email_body = email_body
+        self.email_subject = email_subject
 
     def to_dict(self):
         return {
             "email_id": self.email_id,
-            "email_body": self.email_body,
             "action": self.action,
+            "email_body": self.email_body,
+            "email_subject": self.email_subject,
         }
 
 
