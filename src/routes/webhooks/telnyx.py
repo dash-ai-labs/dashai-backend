@@ -124,6 +124,7 @@ async def telnyx_mark_as_unread_webhook(
                     email_id=email_id,
                     action=Action.MARK_AS_UNREAD,
                 )
+
                 call_session.follow_up_tasks.append(draft_response_task.to_dict())
                 db.add(call_session)
                 db.commit()

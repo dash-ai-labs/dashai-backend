@@ -68,6 +68,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
             call_session = CallSession(
                 user_id=user.id,
                 call_control_id=call_control_id,
+                follow_up_tasks=[],
             )
             db.add(call_session)
             db.commit()
