@@ -135,7 +135,7 @@ def follow_up_actions(call_control_id: str):
                         if task["action"] == Action.RESPOND_TO_EMAIL:
                             email = db.query(Email).get(task["email_id"])
                             if email:
-                                email.respond_to_email(task["email_body"], db)
+                                email.draft_response(task["email_body"], db)
                         elif task["action"] == Action.MARK_AS_UNREAD:
                             email = db.query(Email).get(task["email_id"])
                             if email:
