@@ -31,7 +31,7 @@ class FollowUpTask:
     def to_dict(self):
         return {
             "email_id": self.email_id,
-            "action": self.action,
+            "action": self.action.value,
             "email_body": self.email_body,
             "email_subject": self.email_subject,
         }

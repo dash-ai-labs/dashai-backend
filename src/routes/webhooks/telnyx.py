@@ -2,6 +2,7 @@ import json
 
 import telnyx
 from fastapi import APIRouter, Body, Depends, Request
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.celery_tasks.call_tasks import hangup_call, prepare_email_brief
 from src.database.cache import cache
@@ -74,7 +75,10 @@ async def telnyx_draft_email_webhook(
                 email_body=body,
                 action=Action.RESPOND_TO_EMAIL,
             )
-            call_session.follow_up_tasks.append(draft_response_task.to_dict())
+            follow_up_tasks = call_session.follow_up_tasks or []
+            follow_up_tasks.append(draft_response_task.to_dict())
+            call_session.follow_up_tasks = follow_up_tasks
+            flag_modified(call_session, "follow_up_tasks")
             db.add(call_session)
             db.commit()
             return {"message": "Draft email saved"}
@@ -99,7 +103,10 @@ async def telnyx_mark_as_read_webhook(
                     email_id=email_id,
                     action=Action.MARK_AS_READ,
                 )
-                call_session.follow_up_tasks.append(draft_response_task.to_dict())
+                follow_up_tasks = call_session.follow_up_tasks or []
+                follow_up_tasks.append(draft_response_task.to_dict())
+                call_session.follow_up_tasks = follow_up_tasks
+                flag_modified(call_session, "follow_up_tasks")
                 db.add(call_session)
                 db.commit()
                 return {"message": "Email marked as read"}
@@ -124,8 +131,10 @@ async def telnyx_mark_as_unread_webhook(
                     email_id=email_id,
                     action=Action.MARK_AS_UNREAD,
                 )
-
-                call_session.follow_up_tasks.append(draft_response_task.to_dict())
+                follow_up_tasks = call_session.follow_up_tasks or []
+                follow_up_tasks.append(draft_response_task.to_dict())
+                call_session.follow_up_tasks = follow_up_tasks
+                flag_modified(call_session, "follow_up_tasks")
                 db.add(call_session)
                 db.commit()
                 return {"message": "Email marked as unread"}

@@ -89,15 +89,15 @@ def follow_up_actions(call_control_id: str = None):
                     call_session.is_completed = True
                     if tasks := call_session.follow_up_tasks:
                         for task in tasks:
-                            if task["action"] == Action.RESPOND_TO_EMAIL:
+                            if Action(task["action"]) == Action.RESPOND_TO_EMAIL:
                                 email = db.query(Email).get(task["email_id"])
                                 if email:
                                     email.draft_response(task["email_body"], db)
-                            elif task["action"] == Action.MARK_AS_UNREAD:
+                            elif Action(task["action"]) == Action.MARK_AS_UNREAD:
                                 email = db.query(Email).get(task["email_id"])
                                 if email:
                                     email.mark_as_unread(db)
-                            elif task["action"] == Action.MARK_AS_READ:
+                            elif Action(task["action"]) == Action.MARK_AS_READ:
                                 email = db.query(Email).get(task["email_id"])
                                 if email:
                                     email.mark_as_read(db)
