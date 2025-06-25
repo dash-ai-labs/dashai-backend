@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+import logging
 
 import telnyx
 from celery import shared_task
@@ -15,6 +16,12 @@ from src.libs.const import TELNYX_API_KEY
 from src.libs.types import EmailFolder
 
 telnyx.api_key = TELNYX_API_KEY
+
+logging.basicConfig(
+    level=logging.WARNING, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.WARNING)
 
 
 @shared_task(name="hangup_call")
@@ -82,8 +89,12 @@ def follow_up_actions(call_control_id: str = None):
             .filter(CallSession.is_processed == False, CallSession.is_completed == False)
             .all()
         )
+        logger.info(f"Found {len(call_sessions)} call sessions")
         if call_sessions:
             for call_session in call_sessions:
+                logger.info(
+                    f"Processing call session {call_session.id} with tasks {call_session.follow_up_tasks}"
+                )
                 call = telnyx.Call.retrieve(call_session.call_control_id)
                 if not call["is_alive"]:
                     call_session.is_completed = True

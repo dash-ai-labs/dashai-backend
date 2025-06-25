@@ -47,8 +47,22 @@ class CallSession(Base):
     follow_up_tasks = Column(
         ARRAY(JSON),
         default=[],
+        server_default="[]",
     )
     call_control_id = Column(String)
     recording_url = Column(String)
     is_completed = Column(Boolean, default=False)
     is_processed = Column(Boolean, default=False)
+
+    def to_dict(self):
+        return {
+            "id": str(self.id),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "user_id": str(self.user_id),
+            "follow_up_tasks": self.follow_up_tasks,
+            "call_control_id": self.call_control_id,
+            "recording_url": self.recording_url,
+            "is_completed": self.is_completed,
+            "is_processed": self.is_processed,
+        }

@@ -89,7 +89,6 @@ async def telnyx_mark_as_read_webhook(
     request: Request, data=Body(None), call_control_id=Depends(check_secret_token)
 ):
     email_id = data["email_id"]
-    print("email_id", email_id, call_control_id)
 
     try:
         with get_db() as db:
@@ -105,6 +104,7 @@ async def telnyx_mark_as_read_webhook(
                 follow_up_tasks = call_session.follow_up_tasks or []
                 call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
                 flag_modified(call_session, "follow_up_tasks")
+                print(call_session.to_dict())
                 db.add(call_session)
                 db.commit()
                 return {"message": "Email marked as read"}
