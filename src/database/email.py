@@ -306,6 +306,7 @@ class Email(Base):
             outlook_service = OutlookService(self.email_account.token, db)
             await outlook_service.mark_as_read(self.email_id)
         self.is_read = True
+        db.add(self)
         db.commit()
         return self
 
@@ -317,6 +318,7 @@ class Email(Base):
             outlook_service = OutlookService(self.email_account.token, db)
             await outlook_service.mark_as_unread(self.email_id)
         self.is_read = False
+        db.add(self)
         db.commit()
         return self
 
