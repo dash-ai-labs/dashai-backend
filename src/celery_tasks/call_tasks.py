@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta
 import logging
+import asyncio
 
 import telnyx
 from celery import shared_task
@@ -82,7 +83,7 @@ def prepare_email_brief(phone_number: str, call_control_id: str, call_session_id
 
 
 @shared_task(name="follow_up_actions")
-async def follow_up_actions(call_control_id: str = None):
+def follow_up_actions(call_control_id: str = None):
     with get_db() as db:
         call_sessions = (
             db.query(CallSession)
@@ -104,17 +105,17 @@ async def follow_up_actions(call_control_id: str = None):
                                 logger.info(f"Drafting response for email {task['email_id']}")
                                 email = db.query(Email).get({"id": task["email_id"]})
                                 if email:
-                                    await email.draft_response(task["email_body"], db)
+                                    asyncio.run(email.draft_response(task["email_body"], db))
                             elif Action(task["action"]) == Action.MARK_AS_UNREAD:
                                 logger.info(f"Marking email {task['email_id']} as unread")
                                 email = db.query(Email).get({"id": task["email_id"]})
                                 if email:
-                                    await email.mark_as_unread(db)
+                                    asyncio.run(email.mark_as_unread(db))
                             elif Action(task["action"]) == Action.MARK_AS_READ:
                                 logger.info(f"Marking email {task['email_id']} as read")
                                 email = db.query(Email).get({"id": task["email_id"]})
                                 if email:
-                                    await email.mark_as_read(db)
+                                    asyncio.run(email.mark_as_read(db))
                     call_session.is_processed = True
                     db.add(call_session)
                     db.commit()
