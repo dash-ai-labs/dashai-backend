@@ -66,7 +66,11 @@ async def create_suggestion(
                 query=query,
                 filter=filter,
                 name=user.name,
-                writing_style=EMAIL_COMPOSER_PROMPTS[writing_style],
+                writing_style=(
+                    EMAIL_COMPOSER_PROMPTS[writing_style]
+                    if writing_style in EMAIL_COMPOSER_PROMPTS
+                    else writing_style
+                ),
             ),
             media_type="application/json",
         )
