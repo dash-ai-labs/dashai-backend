@@ -2,7 +2,7 @@ version: '3'
 
 services:
   web:
-    build: .
+    build: Dockerfile.dev
     command: uvicorn src.main:app --host 0.0.0.0 --port 8080
     ports:
       - "8080:8080"
@@ -30,7 +30,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   celery_worker:
-    build: .
+    build: Dockerfile.dev
     command: celery -A src.celery_config:celery worker -l info
     env_file:
       - ./.env
@@ -38,7 +38,7 @@ services:
       - redis_db
 
   celery_beat:
-    build: .
+    build: Dockerfile.dev
     command: celery -A src.celery_config:celery beat -l info
     env_file:
       - ./.env

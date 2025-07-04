@@ -6,4 +6,4 @@ alembic upgrade head
 
 # Start Uvicorn server
 echo "Starting Uvicorn server..."
-gunicorn -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5000 -w 4 src.main:app
+gunicorn -k uvicorn.workers.UvicornWorker -b 0.0.0.0:5000 src.main:app
