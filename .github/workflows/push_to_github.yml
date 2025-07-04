@@ -1,4 +1,4 @@
-name: Push to Artifact Registry and Deploy to Cloud Run
+name: Push to GitHub Container Registry
 
 on:
   push:
