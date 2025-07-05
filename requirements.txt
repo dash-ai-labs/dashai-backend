@@ -16,6 +16,7 @@ redis==5.2.0
 
 # AI/ML
 llama-index==0.12.33
+llama-index-vector-stores-pinecone==0.6.0
 openai==1.70.0
 sentence-transformers==4.1.0
 transformers==4.51.3
