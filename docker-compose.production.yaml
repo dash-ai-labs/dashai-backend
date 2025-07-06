@@ -10,7 +10,7 @@ services:
       resources:
         limits:
           cpus: '1'
-          memory: 2G
+          memory: 1.5G
     volumes:
       - /tmp:/temp_file_storage
         
