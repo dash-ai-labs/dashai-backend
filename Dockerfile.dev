@@ -11,8 +11,10 @@ WORKDIR /workspace/dash_ai
 
 COPY ./model_cache /workspace/dash_ai/model_cache
 COPY ./requirements.txt /workspace/dash_ai/requirements.txt
+COPY ./requirements-dev.txt /workspace/dash_ai/requirements-dev.txt
 
 RUN pip install -r ./requirements.txt \
+    && pip install -r ./requirements-dev.txt \
     && apt-get clean
 
 COPY . /workspace/dash_ai/

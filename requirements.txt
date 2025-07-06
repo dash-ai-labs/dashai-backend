@@ -21,7 +21,7 @@ openai==1.70.0
 sentence-transformers==4.1.0
 transformers==4.51.3
 tiktoken==0.9.0
-pinecone==5.4.2
+pinecone==7.3.0
 numpy==1.26.4
 
 # External Services
@@ -40,6 +40,7 @@ boto3==1.38.12
 beautifulsoup4==4.12.3
 pypdf==5.1.0
 tqdm==4.67.0
+grpcio==1.73.1
 
 # Authentication & Security
 python-jose==3.3.0
