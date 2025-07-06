@@ -1,43 +1,16 @@
 version: '3'
 
 services:
-  cloud-sql-proxy:
-    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
-    container_name: cloud-sql-proxy
-    command:
-      - "--address=0.0.0.0"
-      - ${CONNECTION_NAME}
-    ports:
-      - "5432:5432"
-    env_file:
-      - ./.env
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          memory: 128M
-    networks:
-      - shared-network
-
   celery_worker:
     build: .
-    command: celery -A src.celery_config:celery worker -l info --pool=threads --concurrency=2
+    command: celery -A src.celery_config:celery worker -l info --pool=threads
     env_file:
       - ./.env
-    depends_on:
-      - cloud-sql-proxy
-    logging:
-      driver: gcplogs
-      options:
-        labels: environment,version
-        env: GCP_LOG_LEVEL
     deploy:
       resources:
         limits:
           cpus: '2'
-          memory: 14G
+          memory: 2G
     volumes:
       - /tmp:/temp_file_storage
         
@@ -46,8 +19,6 @@ services:
     command: celery -A src.celery_config:celery beat -l info
     env_file:
       - ./.env
-    depends_on:
-      - cloud-sql-proxy
     deploy:
       resources:
         limits:
