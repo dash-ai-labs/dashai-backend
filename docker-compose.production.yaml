@@ -3,13 +3,13 @@ version: '3'
 services:
   celery_worker:
     build: .
-    command: celery -A src.celery_config:celery worker -l info --pool=prefork --max-memory-per-child=600000
+    command: celery -A src.celery_config:celery worker -l info --pool=prefork --max-memory-per-child=1000000
     env_file:
       - ./.env
     deploy:
       resources:
         limits:
-          memory: 1.4G
+          memory: 2.5G
     volumes:
       - /tmp:/temp_file_storage
         
