@@ -341,7 +341,7 @@ def _insert_new_emails(
                     )
                     attachment = EmailAttachment(
                         email_id=email.id,
-                        attachment_id=gmail_attachment["attachmentId"],
+                        attachment_id=attachment["id"],
                         name=attachment["name"],
                         content_type=attachment["content_type"],
                         size=attachment["size"],
@@ -371,7 +371,7 @@ def _insert_new_emails(
                         )
                         attachment = EmailAttachment(
                             email_id=email.id,
-                            attachment_id=gmail_attachment["attachmentId"],
+                            attachment_id=attachment["id"],
                             name=attachment["name"],
                             content_type=attachment["content_type"],
                             size=attachment["size"],
