@@ -21,7 +21,7 @@ services:
     deploy:
       resources:
         limits:
-          cpu: 0.5
+          cpu: '0.5'
           memory: 512M
     volumes:
       - /tmp:/temp_file_storage
