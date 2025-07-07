@@ -21,11 +21,6 @@ engine = create_engine(
     pool_pre_ping=True,  # Validate connections before use
     pool_recycle=3600,  # Recycle connections after 1 hour
     pool_timeout=30,  # Timeout when getting connection from pool
-    connect_args={
-        "connect_timeout": 10,  # Connection timeout
-        "application_name": "dash_ai_backend",
-        "options": "-c statement_timeout=300000",  # 5 minute statement timeout
-    },
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
