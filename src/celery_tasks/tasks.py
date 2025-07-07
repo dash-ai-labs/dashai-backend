@@ -336,9 +336,6 @@ def _insert_new_emails(
                 )
                 emails_created.append(email)
                 for attachment in message.get_attachments():
-                    gmail_attachment = gmail_service.get_attachment(
-                        message_id=message_id, attachment_id=attachment["id"]
-                    )
                     attachment = EmailAttachment(
                         email_id=email.id,
                         attachment_id=attachment["id"],
@@ -366,9 +363,6 @@ def _insert_new_emails(
                 emails_created.append(email)
                 if folder == EmailFolder.INBOX or folder == EmailFolder.SENT:
                     for attachment in message.get_attachments():
-                        gmail_attachment = gmail_service.get_attachment(
-                            message_id=message_id, attachment_id=attachment["id"]
-                        )
                         attachment = EmailAttachment(
                             email_id=email.id,
                             attachment_id=attachment["id"],
