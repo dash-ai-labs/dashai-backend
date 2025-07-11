@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import telnyx
@@ -8,6 +9,7 @@ from src.celery_tasks.call_tasks import hangup_call, prepare_email_brief
 from src.database.cache import cache
 from src.database.call_session import Action, CallSession, FollowUpTask
 from src.database.db import get_db
+from src.database.email import Email
 from src.database.user import User
 from src.libs.const import PHONE_NUMBER_NOT_FOUND_MESSAGE, TELNYX_API_KEY
 from src.routes.middleware import check_secret_token
@@ -78,6 +80,9 @@ async def telnyx_draft_email_webhook(
             follow_up_tasks = call_session.follow_up_tasks or []
             call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
             flag_modified(call_session, "follow_up_tasks")
+            email = db.query(Email).get({"id": email_id})
+            if email:
+                asyncio.run(email.draft_response(body, db))
             db.add(call_session)
             db.commit()
             return {"message": "Draft email saved"}
@@ -104,7 +109,9 @@ async def telnyx_mark_as_read_webhook(
                 follow_up_tasks = call_session.follow_up_tasks or []
                 call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
                 flag_modified(call_session, "follow_up_tasks")
-                print(call_session.to_dict())
+                email = db.query(Email).get({"id": email_id})
+                if email:
+                    asyncio.run(email.mark_as_read(db))
                 db.add(call_session)
                 db.commit()
                 return {"message": "Email marked as read"}
@@ -132,6 +139,9 @@ async def telnyx_mark_as_unread_webhook(
                 follow_up_tasks = call_session.follow_up_tasks or []
                 call_session.follow_up_tasks = follow_up_tasks + [draft_response_task.to_dict()]
                 flag_modified(call_session, "follow_up_tasks")
+                email = db.query(Email).get({"id": email_id})
+                if email:
+                    asyncio.run(email.mark_as_unread(db))
                 db.add(call_session)
                 db.commit()
                 return {"message": "Email marked as unread"}

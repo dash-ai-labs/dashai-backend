@@ -8,10 +8,9 @@ from fastapi.responses import HTMLResponse
 from llama_index.core import Document
 from msgraph.generated.models.body_type import BodyType
 from msgraph.generated.models.email_address import EmailAddress
-from msgraph.generated.models.recipient import Recipient
 from msgraph.generated.models.item_body import ItemBody
 from msgraph.generated.models.message import Message as OutlookReplyMessage
-
+from msgraph.generated.models.recipient import Recipient
 from sqlalchemy import (
     UUID,
     Boolean,

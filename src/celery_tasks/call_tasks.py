@@ -1,14 +1,14 @@
-import json
-from datetime import datetime, timedelta
-import logging
 import asyncio
+import json
+import logging
+from datetime import datetime, timedelta
 
 import telnyx
 from celery import shared_task
 from fastapi.encoders import jsonable_encoder
 
 from src.database.cache import cache
-from src.database.call_session import Action, CallSession
+from src.database.call_session import CallSession
 from src.database.db import get_db
 from src.database.email import Email
 from src.database.email_account import EmailAccount
@@ -93,29 +93,8 @@ def follow_up_actions(call_control_id: str = None):
         logger.info(f"Found {len(call_sessions)} call sessions")
         if call_sessions:
             for call_session in call_sessions:
-                logger.info(
-                    f"Processing call session {call_session.id} with tasks {call_session.follow_up_tasks}"
-                )
                 call = telnyx.Call.retrieve(call_session.call_control_id)
                 if not call["is_alive"]:
                     call_session.is_completed = True
-                    if tasks := call_session.follow_up_tasks:
-                        for task in tasks:
-                            if Action(task["action"]) == Action.RESPOND_TO_EMAIL:
-                                logger.info(f"Drafting response for email {task['email_id']}")
-                                email = db.query(Email).get({"id": task["email_id"]})
-                                if email:
-                                    asyncio.run(email.draft_response(task["email_body"], db))
-                            elif Action(task["action"]) == Action.MARK_AS_UNREAD:
-                                logger.info(f"Marking email {task['email_id']} as unread")
-                                email = db.query(Email).get({"id": task["email_id"]})
-                                if email:
-                                    asyncio.run(email.mark_as_unread(db))
-                            elif Action(task["action"]) == Action.MARK_AS_READ:
-                                logger.info(f"Marking email {task['email_id']} as read")
-                                email = db.query(Email).get({"id": task["email_id"]})
-                                if email:
-                                    asyncio.run(email.mark_as_read(db))
-                    call_session.is_processed = True
                     db.add(call_session)
                     db.commit()
