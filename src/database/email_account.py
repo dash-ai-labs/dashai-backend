@@ -44,6 +44,7 @@ class EmailAccount(Base):
     emails = relationship("Email", back_populates="email_account")
     tasks = relationship("EmailTask", back_populates="email_account")
     settings = relationship("Settings", back_populates="email_account", uselist=False)
+    contacts = relationship("Contact", back_populates="email_account")
     status = Column(
         Enum(EmailAccountStatus, name="emailaccountstatus"),
         default=EmailAccountStatus.NOT_STARTED,

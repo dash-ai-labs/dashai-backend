@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
+from src.database.contact import Contact
 from src.base import Message
 from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
@@ -177,10 +178,6 @@ def _process_gmail_folder(
 
         # Identify new messages
         new_message_ids = set(message_ids) - set(existing_messages)
-        if "1975073a21b0cdff" in message_ids:
-            print("existing_messages", existing_messages)
-            print("message_ids", message_ids)
-            print("new_message_ids", new_message_ids)
 
         # Process and insert new emails in chunks
         if len(new_message_ids) > 0:
@@ -553,6 +550,12 @@ def embed_new_emails(user_id: str = None):
             print("Embedding emails and storing in VectorDB for user: ", user_id)
             processed_email_count = 0
             for email in emails:
+                Contact.get_or_create_contact(
+                    db,
+                    email_account_id=email.email_account_id,
+                    email_address=email.sender,
+                    name=email.sender_name,
+                )
                 response = Email.embed_and_store(user_id=user_id, email=email)
                 processed_email_count += 1
                 if response:
