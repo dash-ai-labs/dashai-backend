@@ -1,5 +1,6 @@
 from .association_table import email_lable_association_table
 from .call_session import CallSession
+from .contact import Contact
 from .db import Base, get_db
 from .email import Email
 from .email_account import EmailAccount, EmailProvider
@@ -14,4 +15,3 @@ from .token import Token
 from .user import User
 from .vectory_db import VectorDB
 from .waitlist import OffWaitlist
-from .contact import Contact

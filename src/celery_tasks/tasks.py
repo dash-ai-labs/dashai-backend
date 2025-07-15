@@ -8,11 +8,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from src.database.contact import Contact
 from src.base import Message
 from src.base.outlook_message import OutlookMessage
 from src.database import Email, EmailAccount, Token, User, get_db
-from src.database.cache import cache
+from src.database.contact import Contact
 from src.database.email_account import EmailAccountStatus, EmailProvider
 from src.database.email_attachment import EmailAttachment
 from src.database.email_label import EmailLabel

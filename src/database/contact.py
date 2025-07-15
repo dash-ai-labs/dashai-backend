@@ -1,19 +1,16 @@
 import uuid
 from datetime import datetime
-from src.database.db import Base
 
-from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import Session, class_mapper, relationship
 from sqlalchemy import (
     UUID,
-    Boolean,
     Column,
     DateTime,
     ForeignKey,
     String,
-    UnicodeText,
-    UniqueConstraint,
 )
+from sqlalchemy.orm import Session, relationship
+
+from src.database.db import Base
 
 
 class Contact(Base):
