@@ -50,12 +50,21 @@ class EmailAttachment(Base):
 
         return url
 
-    def __init__(self, email_id: str, attachment_id: str, name: str, content_type: str, size: int):
+    def __init__(
+        self,
+        email_id: str,
+        attachment_id: str,
+        name: str,
+        content_type: str = None,
+        size: int = None,
+    ):
         self.email_id = email_id
         self.attachment_id = attachment_id
         self.name = name
-        self.content_type = content_type
-        self.size = size
+        if content_type:
+            self.content_type = content_type
+        if size:
+            self.size = size
 
     def _create_document(self, filepath: str):
         documents = SimpleDirectoryReader(

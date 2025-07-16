@@ -336,7 +336,6 @@ def _insert_new_emails(
                         email_id=email.id,
                         attachment_id=attachment["id"],
                         name=attachment["name"],
-                        content_type=attachment["content_type"],
                         size=attachment["size"],
                     )
                     attachments_created.append(attachment)
@@ -363,7 +362,6 @@ def _insert_new_emails(
                             email_id=email.id,
                             attachment_id=attachment["id"],
                             name=attachment["name"],
-                            content_type=attachment["content_type"],
                             size=attachment["size"],
                         )
                         attachments_created.append(attachment)
