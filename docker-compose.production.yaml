@@ -21,7 +21,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 600M
+          memory: 800M
     volumes:
       - /tmp:/temp_file_storage
 
