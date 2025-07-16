@@ -385,7 +385,7 @@ def _insert_new_emails(
 
     # Commit any remaining emails
     if emails_created:
-        _commit_emails(db, emails_created)
+        _commit_emails(db, emails_created, attachments_created)
 
 
 def _insert_new_outlook_emails(
