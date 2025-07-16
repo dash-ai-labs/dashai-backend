@@ -41,7 +41,6 @@ beautifulsoup4==4.12.3
 pypdf==5.1.0
 tqdm==4.67.0
 grpcio==1.73.1
-protobuf>=5.29.0,<6.0.0
 
 # Authentication & Security
 python-jose==3.3.0

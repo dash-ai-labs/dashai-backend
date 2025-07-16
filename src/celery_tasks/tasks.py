@@ -553,7 +553,7 @@ def embed_new_emails(user_id: str = None):
                     db,
                     email_account_id=str(email.email_account_id),
                     email_address=email.sender[0],
-                    name=email.sender_name[0],
+                    name=email.sender_name[0] if len(email.sender_name) > 0 else "",
                 )
                 response = Email.embed_and_store(user_id=user_id, email=email)
                 processed_email_count += 1
