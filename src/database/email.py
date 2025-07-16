@@ -87,6 +87,7 @@ class Email(Base):
             self.subject = message.get_subject()
             self.date = message.get_date()
             self.content = message.get_content()
+            self.attachments = message.get_attachments()
             self.email_id = message.get_email_id()
             self.snippet = message.get_snippet()
             self.raw_content = message.get_raw_content()
@@ -102,6 +103,7 @@ class Email(Base):
             self.subject = message.get_subject()
             self.date = message.get_date()
             self.content = message.get_content()
+            self.attachments = message.get_attachments()
             self.email_id = message.get_email_id()
             self.raw_content = message.get_raw_content()
             self.email_account_id = email_account.id
