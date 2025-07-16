@@ -551,9 +551,9 @@ def embed_new_emails(user_id: str = None):
             for email in emails:
                 Contact.get_or_create_contact(
                     db,
-                    email_account_id=email.email_account_id,
-                    email_address=email.sender,
-                    name=email.sender_name,
+                    email_account_id=str(email.email_account_id),
+                    email_address=email.sender[0],
+                    name=email.sender_name[0],
                 )
                 response = Email.embed_and_store(user_id=user_id, email=email)
                 processed_email_count += 1
