@@ -95,10 +95,10 @@ class EmailAttachment(Base):
         if gmail_service:
             gmail_attachment = gmail_service.get_attachment(
                 message_id=email_id, attachment_id=attachment.attachment_id
-            )["data"]
+            )
             attachment_data = base64.urlsafe_b64decode(gmail_attachment["data"])
             filepath = f"attachments/{user_id}/{email_id}/{attachment.name}"
-
+            attachment.size = gmail_attachment["size"]
         if outlook_service:
             outlook_attachment = asyncio.run(
                 outlook_service.get_attachment(

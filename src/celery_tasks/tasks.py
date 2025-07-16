@@ -336,7 +336,6 @@ def _insert_new_emails(
                         email_id=email.id,
                         attachment_id=attachment["id"],
                         name=attachment["name"],
-                        size=attachment["size"],
                     )
                     attachments_created.append(attachment)
             elif any(
@@ -362,7 +361,6 @@ def _insert_new_emails(
                             email_id=email.id,
                             attachment_id=attachment["id"],
                             name=attachment["name"],
-                            size=attachment["size"],
                         )
                         attachments_created.append(attachment)
 
@@ -456,7 +454,6 @@ def _insert_new_outlook_emails(
                             size=attachment["size"],
                         )
                         attachments_created.append(outlook_attachment)
-
             # Commit in chunks
             if len(emails_created) >= CHUNK_SIZE:
                 _commit_emails(db, emails_created, attachments_created)
