@@ -131,7 +131,6 @@ async def get_emails(
 
             # Check if we've reached the end of the records
             end = (page - 1) * limit + len(emails) >= total_count
-            print(emails[4].to_dict())
             return {
                 "emails": [email.to_dict() for email in emails],
                 "end": end,
@@ -165,7 +164,6 @@ async def get_email_content(
                 .filter(Email.email_id == email_id, EmailAccount.user_id == user_id)
                 .first()
             )
-            print(email.attachments)
             return HTMLResponse(content=email.sanitized_content(request))
     raise HTTPException(status_code=401, detail="Unauthorized")
 
