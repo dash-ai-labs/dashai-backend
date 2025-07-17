@@ -69,9 +69,9 @@ class EmailAttachment(Base):
     def to_dict(self):
         return {
             "name" : self.name,
-	        "content_type" : self.content_type,
-	        "url" : self.url,
-	        "size": self.size
+	    "content_type" : self.content_type,
+	    "url" : self.url,
+	    "size": self.size
         }
 
     def _create_document(self, filepath: str):
