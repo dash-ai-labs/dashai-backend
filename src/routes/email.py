@@ -131,6 +131,7 @@ async def get_emails(
 
             # Check if we've reached the end of the records
             end = (page - 1) * limit + len(emails) >= total_count
+
             return {
                 "emails": [email.to_dict() for email in emails],
                 "end": end,
