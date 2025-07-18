@@ -334,7 +334,7 @@ async def google_callback(callback: Callback):
             db, EmailProvider.GMAIL, user, user_info["email"]
         )
         # Email account is not synced yet and no token found
-        if not email_account.token and not email_account.last_sync:
+        if not email_account.token or not email_account.last_sync:
 
             oauth_token = Token.get_or_create_token(
                 db,

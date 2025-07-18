@@ -148,6 +148,10 @@ class Email(Base):
             serialized_data["content"] = (
                 f"/user/{self.email_account.user.id}/email/{self.email_id}/content"
             )
+        
+        if "attachments" in allowed_columns:
+            serialized_data["attachments"] = [attachment.to_dict() for attachment in self.attachments]
+
         return serialized_data
 
     def sanitized_content(self, request: Request):

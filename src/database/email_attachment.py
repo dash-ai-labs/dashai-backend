@@ -65,6 +65,14 @@ class EmailAttachment(Base):
             self.content_type = content_type
         if size:
             self.size = size
+        
+    def to_dict(self):
+        return {
+            "name" : self.name,
+	    "content_type" : self.content_type,
+	    "url" : self.url,
+	    "size": self.size
+        }
 
     def _create_document(self, filepath: str):
         documents = SimpleDirectoryReader(
