@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import List
 
 from sqlalchemy import (
     UUID,
@@ -7,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     String,
+    Float,
 )
 from sqlalchemy.orm import Session, relationship
 
@@ -23,6 +25,7 @@ class Contact(Base):
 
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"))
     email_account = relationship("EmailAccount", back_populates="contacts")
+    score = Column(Float, default=0.0)
 
     def to_dict(self):
         return {
@@ -32,6 +35,7 @@ class Contact(Base):
             "email_account_id": str(self.email_account_id),
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "score" : self.score,
         }
 
     @classmethod
@@ -54,3 +58,12 @@ class Contact(Base):
             db.add(contact)
             db.commit()
             return contact
+
+    def increment_score(self, db, value):
+        if not self.score:
+            self.score = 0
+        
+        self.score += value
+        
+        db.add(self)
+        db.commit()

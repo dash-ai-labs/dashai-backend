@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
 from src.celery_tasks.tasks import get_new_emails
-from src.database import Email, EmailAccount, EmailLabel, VectorDB, get_db
+from src.database import Contact, Email, EmailAccount, EmailLabel, VectorDB, get_db
 from src.libs.types import EmailData, EmailFolder
 from src.routes.middleware import get_user_id
 
@@ -118,6 +118,14 @@ async def get_emails(
                 email_query = db.query(Email).filter(
                     Email.email_account_id.in_(email_account_ids), Email.folder == folder
                 )
+                
+                # email is retrieved but not opened -> decrement contact score by 1
+                unopened_emails = email_query.filter( Email.is_read == False)
+                for email in unopened_emails:
+                    for sender in email.sender: # can emails have multiple senders?
+                        contact = db.query(Contact).filter(Contact.email_address == sender).first()
+                        if contact:
+                            contact.increment_score(db, -1)
 
                 if filter_is_read is not None:
                     email_query = email_query.filter(Email.is_read == filter_is_read)
@@ -165,6 +173,11 @@ async def get_email_content(
                 .filter(Email.email_id == email_id, EmailAccount.user_id == user_id)
                 .first()
             )
+            
+            # increment score by 1 if email is opened
+            contact = db.query(Contact).filter(Contact.id == id).first()
+            contact.increment_score(db, 1)
+
             return HTMLResponse(content=email.sanitized_content(request))
     raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -220,7 +233,14 @@ async def send_email(
             )
 
         res = await email_account.send_email(email, db)
+        
         if res:
+            # inrement score of contact by 1 if user sends an email to them
+            contacts = email.to  # List of recipient email addresses
+            for recipient_email in contacts:
+                contact = db.query(Contact).filter(Contact.email_address == recipient_email).first()
+                contact.increment_score(db, 1)
+
             return {"message": "Email sent successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to send email")
