@@ -178,7 +178,7 @@ async def get_email_content(
             
             # increment score by 1 if email is opened
             contact = db.query(Contact).filter(Contact.id == id).first()
-            contact.increment_score(db, 1)
+            contact.increment_score(db, 2)
 
             return HTMLResponse(content=email.sanitized_content(request))
     raise HTTPException(status_code=401, detail="Unauthorized")
@@ -241,7 +241,7 @@ async def send_email(
             contacts = email.to  # List of recipient email addresses
             for recipient_email in contacts:
                 contact = db.query(Contact).filter(Contact.email_address == recipient_email).first()
-                contact.increment_score(db, 1)
+                contact.increment_score(db, 3)
 
             return {"message": "Email sent successfully"}
         else:
