@@ -119,10 +119,12 @@ async def get_emails(
                     Email.email_account_id.in_(email_account_ids), Email.folder == folder
                 )
                 
-                # email is retrieved but not opened -> decrement contact score by 1
-                unopened_emails = email_query.filter( Email.is_read == False)
-                for email in unopened_emails:
-                    for sender in email.sender: # can emails have multiple senders?
+
+                new_emails = email_query.filter(Email.is_shown.is_(False) | Email.is_shown.is_(None)).all()
+
+                for email in new_emails:
+                    email.mark_as_shown(db)
+                    for sender in email.sender:
                         contact = db.query(Contact).filter(Contact.email_address == sender).first()
                         if contact:
                             contact.increment_score(db, -1)
@@ -235,7 +237,7 @@ async def send_email(
         res = await email_account.send_email(email, db)
         
         if res:
-            # inrement score of contact by 1 if user sends an email to them
+            # Inrement score of contact by 1 if user sends an email to them
             contacts = email.to  # List of recipient email addresses
             for recipient_email in contacts:
                 contact = db.query(Contact).filter(Contact.email_address == recipient_email).first()

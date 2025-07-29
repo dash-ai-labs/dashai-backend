@@ -26,6 +26,7 @@ class Contact(Base):
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"))
     email_account = relationship("EmailAccount", back_populates="contacts")
     score = Column(Float, default=0.0)
+    alpha = 0.2
 
     def to_dict(self):
         return {
@@ -63,7 +64,7 @@ class Contact(Base):
         if not self.score:
             self.score = 0
         
-        self.score += value
+        self.score = self.alpha * value + (1 - self.alpha) * self.score
         
         db.add(self)
         db.commit()

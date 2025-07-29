@@ -58,6 +58,7 @@ class Email(Base):
     raw_content = Column(UnicodeText, nullable=True)
     thread_id = Column(String, nullable=True)
     is_read = Column(Boolean, default=False)
+    is_shown = Column(Boolean, default=False)
     labels = Column(ARRAY(String))
     folder = Column(String, default=EmailFolder.INBOX.value, server_default=EmailFolder.INBOX.value)
     email_id = Column(String)
@@ -126,6 +127,7 @@ class Email(Base):
             "email_id",
             "email_labels",
             "is_read",
+            "is_shown",
             "folder",
             "email_account_id",
             "attachments",
@@ -321,6 +323,12 @@ class Email(Base):
             outlook_service = OutlookService(self.email_account.token, db)
             await outlook_service.mark_as_unread(self.email_id)
         self.is_read = False
+        db.add(self)
+        db.commit()
+        return self
+
+    def mark_as_shown(self, db: Session):
+        self.is_shown = True
         db.add(self)
         db.commit()
         return self
