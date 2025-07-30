@@ -713,3 +713,13 @@ def delete_user(user_id: str):
             send_discord_message(f"User {user_email} has been deleted", DISCORD_USER_ALERTS_CHANNEL)
         else:
             logger.warning(f"User with ID {user_id} not found")
+
+@shared_task(name="mark_emails_as_shown")
+def mark_emails_as_shown(email_ids: List[str]):
+    with get_db() as db:
+        emails = db.query(Email).filter(Email.id.in_(email_ids)).all()
+        for email in emails:
+            email.mark_as_shown(db)
+            contacts = db.query(Contact).filter(Contact.email_address.in_(email.sender))
+            for contact in contacts:
+                contact.increment_score(db, -1)

@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 
-from src.celery_tasks.tasks import get_new_emails
+from src.celery_tasks.tasks import get_new_emails, mark_emails_as_shown
 from src.database import Contact, Email, EmailAccount, EmailLabel, VectorDB, get_db
 from src.libs.types import EmailData, EmailFolder
 from src.routes.middleware import get_user_id
@@ -118,17 +118,6 @@ async def get_emails(
                 email_query = db.query(Email).filter(
                     Email.email_account_id.in_(email_account_ids), Email.folder == folder
                 )
-                
-
-                new_emails = email_query.filter(Email.is_shown.is_(False) | Email.is_shown.is_(None)).all()
-
-                for email in new_emails:
-                    email.mark_as_shown(db)
-                    for sender in email.sender:
-                        contact = db.query(Contact).filter(Contact.email_address == sender).first()
-                        if contact:
-                            contact.increment_score(db, -1)
-
                 if filter_is_read is not None:
                     email_query = email_query.filter(Email.is_read == filter_is_read)
 
@@ -138,6 +127,8 @@ async def get_emails(
                     .offset((page - 1) * limit)
                     .all()
                 )
+
+                mark_emails_as_shown.delay([email.id for email in emails])
 
             # Check if we've reached the end of the records
             end = (page - 1) * limit + len(emails) >= total_count
@@ -175,7 +166,7 @@ async def get_email_content(
                 .filter(Email.email_id == email_id, EmailAccount.user_id == user_id)
                 .first()
             )
-            
+
             # increment score by 1 if email is opened
             contact = db.query(Contact).filter(Contact.id == id).first()
             contact.increment_score(db, 2)
@@ -235,7 +226,7 @@ async def send_email(
             )
 
         res = await email_account.send_email(email, db)
-        
+
         if res:
             # Inrement score of contact by 1 if user sends an email to them
             contacts = email.to  # List of recipient email addresses
