@@ -549,10 +549,11 @@ def embed_new_emails(user_id: str = None):
             processed_email_count = 0
             for email in emails:
                 # classify email
-                category, _ = classify_email(email.content)
-                email.categories = category
-                db.add(email)
-                db.commit()
+                if not email.categories:
+                    category, _ = classify_email(email.content)
+                    email.categories = category
+                    db.add(email)
+                    db.commit()
 
                 Contact.get_or_create_contact(
                     db,
