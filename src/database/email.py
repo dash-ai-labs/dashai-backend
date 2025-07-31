@@ -59,6 +59,7 @@ class Email(Base):
     thread_id = Column(String, nullable=True)
     is_read = Column(Boolean, default=False)
     is_shown = Column(Boolean, default=False)
+    categories = Column(ARRAY(String))
     labels = Column(ARRAY(String))
     folder = Column(String, default=EmailFolder.INBOX.value, server_default=EmailFolder.INBOX.value)
     email_id = Column(String)
@@ -132,6 +133,7 @@ class Email(Base):
             "email_account_id",
             "attachments",
             "content",
+            "categories",
         ],
     ):
 
