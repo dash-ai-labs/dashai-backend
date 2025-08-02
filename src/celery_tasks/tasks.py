@@ -2,13 +2,11 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Set
-import openai
 
 from celery import shared_task
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from tqdm import tqdm
-import json
 
 from src.base import Message
 from src.base.outlook_message import OutlookMessage
@@ -20,10 +18,11 @@ from src.database.email_label import EmailLabel
 from src.database.notification import Notification
 from src.database.settings import Settings
 from src.database.user import MembershipStatus
-from src.libs.const import DISCORD_USER_ALERTS_CHANNEL, OPENAI_API_KEY
+from src.libs.const import DISCORD_USER_ALERTS_CHANNEL
 from src.libs.discord_service import send_discord_message
 from src.libs.text_utils import summarize_text
 from src.libs.types import EmailFolder
+from src.libs.llm_utils import classify_email
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
 
@@ -42,9 +41,6 @@ logging.getLogger("llama_index").setLevel(logging.ERROR)
 logging.getLogger("openai").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # openai uses httpx under the hood
 logging.getLogger("pinecone").setLevel(logging.ERROR)
-
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
-
 
 @shared_task(name="ingest_email")
 def ingest_email(email_account_id: str):
@@ -736,62 +732,3 @@ def mark_emails_as_shown(email_ids: List[str]):
                 contacts = db.query(Contact).filter(Contact.email_address.in_(email.sender))
                 for contact in contacts:
                     contact.increment_score(db, -1)
-
-def classify_email(email: list[str]):
-    try:
-        api_response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            max_tokens=20,
-            top_p=0.1,
-            messages=[
-                {
-                    "role": "system",
-                    "content": """AI Instructions
-Your only job is to classify the email the user has provided, and choose all applicable categories from the list.
-Call the API function with all applicable categories as a list.
-Only call the function. Do not include explanations or summaries.
-If there's a problem (e.g., multiple unrelated emails or corrupted input), return ['error'].
-Do not infer categories beyond those listed.""",
-                },
-                {"role": "user", "content": email},
-            ],
-            function_call={"name": "category_results"},
-            functions=[
-                {
-                    "name": "category_results",
-                    "description": "Reports all applicable email categories",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "category": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [
-                                        "urgent",
-                                        "actionable",
-                                        "information",
-                                        "newsletter",
-                                        "promo",
-                                        "other",
-                                    ],
-                                },
-                                "description": "One or more categories",
-                            },
-                        },
-                        "required": ["category"],
-                    },
-                }
-            ],
-        )
-        func_call = api_response.choices[0].message.function_call
-        args = json.loads(func_call.arguments)
-        categories = args["category"]  # ← this is the actual list
-
-        return categories, func_call
-
-    # many more openai-specific error handlers can go here
-    except Exception as err:
-        error_message = f"API Error: {str(err)}"
-        print(error_message)
-        raise
