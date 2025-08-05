@@ -22,6 +22,7 @@ from src.libs.const import DISCORD_USER_ALERTS_CHANNEL
 from src.libs.discord_service import send_discord_message
 from src.libs.text_utils import summarize_text
 from src.libs.types import EmailFolder
+from src.libs.llm_utils import classify_email
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
 
@@ -40,7 +41,6 @@ logging.getLogger("llama_index").setLevel(logging.ERROR)
 logging.getLogger("openai").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # openai uses httpx under the hood
 logging.getLogger("pinecone").setLevel(logging.ERROR)
-
 
 @shared_task(name="ingest_email")
 def ingest_email(email_account_id: str):
@@ -544,6 +544,13 @@ def embed_new_emails(user_id: str = None):
             print("Embedding emails and storing in VectorDB for user: ", user_id)
             processed_email_count = 0
             for email in emails:
+                # classify email
+                if not email.categories:
+                    category, _ = classify_email(email.content)
+                    email.categories = category
+                    db.add(email)
+                    db.commit()
+
                 Contact.get_or_create_contact(
                     db,
                     email_account_id=str(email.email_account_id),
