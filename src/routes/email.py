@@ -168,7 +168,14 @@ async def get_email_content(
             )
 
             # increment score by 1 if email is opened
-            contact = db.query(Contact).filter(Contact.id == id).first()
+            contact = (
+                db.query(Contact)
+                .filter(
+                    Contact.email_address == email.sender[0],
+                    Contact.email_account_id == email.email_account_id,
+                )
+                .first()
+            )
             contact.increment_score(db, 2)
 
             return HTMLResponse(content=email.sanitized_content(request))
