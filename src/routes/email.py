@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
+from sqlalchemy import any_, or_
 
 from src.celery_tasks.tasks import get_new_emails, mark_emails_as_shown
 from src.database import Contact, Email, EmailAccount, EmailLabel, VectorDB, get_db
@@ -52,6 +53,7 @@ async def get_emails(
     account: str = Query(default=""),
     filter_is_read: Optional[bool] = Query(default=None, alias="filter[is_read]"),
     folder: Optional[EmailFolder] = Query(default=EmailFolder.INBOX),
+    category: Optional[list[str]] = Query(default=None),
     limit: int = Query(default=30),
     page: int = Query(default=1),
     user=Depends(get_user_id),
@@ -60,6 +62,9 @@ async def get_emails(
     if user_id == user.get("user_id"):
         with get_db() as db:
             get_new_emails.delay(user_id)
+            if category:
+                category = [category] if isinstance(category, str) else category
+
             if account:
                 email_account = (
                     db.query(EmailAccount)
@@ -91,6 +96,13 @@ async def get_emails(
                 if filter_is_read is not None:
                     email_query = email_query.filter(Email.is_read == filter_is_read)
 
+                if category:
+                    # Use any() to check if any element in categories array matches any element in category list
+                    filters = [Email.categories.any(cat) for cat in category]
+                    email_query = email_query.filter(
+                        or_(*filters) if len(filters) > 1 else filters[0]
+                    )
+
                 emails = (
                     email_query.order_by(Email.date.desc())
                     .limit(limit)
@@ -113,6 +125,11 @@ async def get_emails(
                 if filter_is_read is not None:
                     query = query.filter(Email.is_read == filter_is_read)
 
+                if category:
+                    # Use any() to check if any element in categories array matches any element in category list
+                    filters = [Email.categories.any(cat) for cat in category]
+                    query = query.filter(or_(*filters) if len(filters) > 1 else filters[0])
+
                 total_count = query.count()
 
                 email_query = db.query(Email).filter(
@@ -120,6 +137,12 @@ async def get_emails(
                 )
                 if filter_is_read is not None:
                     email_query = email_query.filter(Email.is_read == filter_is_read)
+
+                if category:
+                    filters = [Email.categories.any(cat) for cat in category]
+                    email_query = email_query.filter(
+                        or_(*filters) if len(filters) > 1 else filters[0]
+                    )
 
                 emails: list[Email] = (
                     email_query.order_by(Email.date.desc())

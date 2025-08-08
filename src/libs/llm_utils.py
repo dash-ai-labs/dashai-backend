@@ -16,7 +16,7 @@ def classify_email(email: list[str]):
                     "role": "system",
                     "content": """AI Instructions
 Your only job is to classify the email the user has provided, and choose all applicable categories from the list.
-Call the API function with all applicable categories as a list.
+Call the API function with all applicable categories as a list. Urgent and information are mutually exclusive. Actionable and information are mutually exclusive.
 Only call the function. Do not include explanations or summaries.
 If there's a problem (e.g., multiple unrelated emails or corrupted input), return ['error'].
 Do not infer categories beyond those listed.""",
