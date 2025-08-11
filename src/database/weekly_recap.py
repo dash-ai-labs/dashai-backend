@@ -19,7 +19,6 @@ class WeeklyEmailRecap(Base):
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"), nullable=False)
     email_account = relationship("EmailAccount", back_populates="weekly_recaps")
 
-    # Add ForeignKey to the Email itself
     email_id = Column(UUID, ForeignKey("emails.id"), nullable=False)
     email = relationship("Email")
     categories = Column(ARRAY(String))
@@ -27,6 +26,10 @@ class WeeklyEmailRecap(Base):
     @classmethod
     def create_recap(cls, db, email_account_id, emails, summary=None, week_start=None, week_end=None):
         """Create and store one weekly recap row per email."""
+        
+        # clear old emails before inserting new
+        cls.clear_old_recaps_except_new_week(db, email_account_id)
+
         if not week_start or not week_end:
             week_start = date.today() - timedelta(days=date.today().weekday())  # Monday
             week_end = week_start + timedelta(days=6)  # Sunday
@@ -48,3 +51,20 @@ class WeeklyEmailRecap(Base):
         for recap in recaps:
             db.refresh(recap)
         return recaps
+    
+    @classmethod
+    def clear_old_recaps_except_new_week(cls, db, email_account_id):
+        today = date.today()
+        current_week_start = today - timedelta(days=today.weekday())  # Monday this week
+        
+        delete_query = (
+            db.query(cls)
+            .filter(
+                cls.email_account_id == email_account_id,
+                cls.week_end < current_week_start
+            )
+        )
+
+        deleted_count = delete_query.delete(synchronize_session="fetch")
+        db.commit()
+        return deleted_count
