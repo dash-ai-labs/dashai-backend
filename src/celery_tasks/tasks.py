@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Set
+from collections import defaultdict
 
 from celery import shared_task
 from sqlalchemy.exc import SQLAlchemyError
@@ -25,6 +26,7 @@ from src.libs.types import EmailFolder
 from src.libs.llm_utils import classify_email
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
+from src.database.weekly_recap import WeeklyEmailRecap
 
 MINUTES = 60 * 24
 BACKFILL_DAYS = 3
@@ -543,14 +545,20 @@ def embed_new_emails(user_id: str = None):
             # Process emails in batches of 20
             print("Embedding emails and storing in VectorDB for user: ", user_id)
             processed_email_count = 0
+            weekly_recap_emails_by_account = defaultdict(list)
+            
             for email in emails:
                 # classify email
                 if not email.categories:
                     category, _ = classify_email(email.content)
                     email.categories = category
+
                     db.add(email)
                     db.commit()
 
+                if any(cat in email.categories for cat in ['newsletter', 'promo']):
+                    weekly_recap_emails_by_account[email.email_account_id].append(email)
+                        
                 Contact.get_or_create_contact(
                     db,
                     email_account_id=str(email.email_account_id),
@@ -565,6 +573,14 @@ def embed_new_emails(user_id: str = None):
                     db.commit()
 
             print("Finished embedding and storing in VectorDB for user: ", user_id)
+            
+            for account_id, recap_emails in weekly_recap_emails_by_account.items():
+                WeeklyEmailRecap.create_recap(
+                    db=db,
+                    email_account_id=account_id,
+                    emails=recap_emails,
+                    summary="Weekly newsletters and promotions"
+                )
 
             print(f"Generating summaries for {len(emails)} emails...")
             for email in tqdm(emails, desc="Summarizing emails", unit="email"):
