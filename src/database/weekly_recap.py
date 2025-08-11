@@ -48,9 +48,6 @@ class WeeklyEmailRecap(Base):
             recaps.append(recap)
     
         db.commit()
-        for recap in recaps:
-            db.refresh(recap)
-        return recaps
     
     @classmethod
     def clear_old_recaps_except_new_week(cls, db, email_account_id):
