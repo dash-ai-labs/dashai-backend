@@ -127,7 +127,7 @@ async def email_task_action(
                 email = db.query(Email).filter(Email.id == email_id).first()
                 if email:
                     response = client.chat.completions.create(
-                        model="gpt-4o-mini",
+                        model="gpt-5-nano",
                         messages=[
                             {
                                 "role": "system",

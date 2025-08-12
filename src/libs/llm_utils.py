@@ -8,7 +8,7 @@ client = openai.OpenAI(api_key=OPENAI_API_KEY)
 def classify_email(email: list[str]):
     try:
         api_response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             max_tokens=20,
             top_p=0.1,
             messages=[
@@ -27,24 +27,21 @@ Do not infer categories beyond those listed.""",
             functions=[
                 {
                     "name": "category_results",
-                    "description": "Reports all applicable email categories",
+                    "description": "Reports the most applicable email category",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "category": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [
-                                        "urgent",
-                                        "actionable",
-                                        "information",
-                                        "newsletter",
-                                        "promo",
-                                        "other",
-                                    ],
-                                },
-                                "description": "One or more categories",
+                                "type": "string",
+                                "enum": [
+                                    "urgent",
+                                    "actionable",
+                                    "information",
+                                    "newsletter",
+                                    "promo",
+                                    "other",
+                                ],
+                                "description": "One category",
                             },
                         },
                         "required": ["category"],
