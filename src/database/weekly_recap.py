@@ -17,7 +17,7 @@ class WeeklyEmailRecap(Base):
     summary = Column(UnicodeText, nullable=True)
 
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"), nullable=False)
-    email_account = relationship("EmailAccount", back_populates="weekly_recaps")
+    email_account = relationship("EmailAccount", back_populates="weekly_email_recap")
 
     email_id = Column(UUID, ForeignKey("emails.id"), nullable=False)
     email = relationship("Email")
@@ -26,7 +26,7 @@ class WeeklyEmailRecap(Base):
     @classmethod
     def create_recap(cls, db, email_account_id, emails, summary=None, week_start=None, week_end=None):
         """Create and store one weekly recap row per email."""
-        
+
         # clear old emails before inserting new
         cls.clear_old_recaps_except_new_week(db, email_account_id)
 
