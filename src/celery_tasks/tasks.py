@@ -556,7 +556,7 @@ def embed_new_emails(user_id: str = None):
                     db.add(email)
                     db.commit()
 
-                if any(cat in email.categories for cat in ['newsletter', 'promo']):
+                if email.categories and any(cat in email.categories for cat in ['newsletter', 'promo']):
                     weekly_recap_emails_by_account[email.email_account_id].append(email)
                         
                 Contact.get_or_create_contact(
