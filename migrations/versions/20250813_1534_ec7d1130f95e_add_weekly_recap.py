@@ -1,8 +1,8 @@
-"""Create weekly_email_recaps with email_id
+"""Add weekly recap
 
-Revision ID: 9dc61e71333c
-Revises: 8ce6bddcd6fe
-Create Date: 2025-08-11 20:23:39.871453
+Revision ID: ec7d1130f95e
+Revises: 298b8a067fb8
+Create Date: 2025-08-13 15:34:56.944489
 
 """
 
@@ -10,10 +10,11 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "9dc61e71333c"
-down_revision: Union[str, None] = "8ce6bddcd6fe"
+revision: str = "ec7d1130f95e"
+down_revision: Union[str, None] = "298b8a067fb8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -29,6 +30,7 @@ def upgrade() -> None:
         sa.Column("summary", sa.UnicodeText(), nullable=True),
         sa.Column("email_account_id", sa.UUID(), nullable=False),
         sa.Column("email_id", sa.UUID(), nullable=False),
+        sa.Column("categories", postgresql.ARRAY(sa.String()), nullable=True),
         sa.ForeignKeyConstraint(
             ["email_account_id"],
             ["email_accounts.id"],
