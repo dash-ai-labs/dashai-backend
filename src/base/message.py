@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+import re
 
 
 def email_date_converter(email_date):
@@ -15,6 +16,20 @@ def email_date_converter(email_date):
         email_date = email_date[:-1]
     if " . " in email_date:
         email_date = email_date.split(" . ")[0]
+
+    # Normalize invalid numeric timezone offsets (e.g., +4865) to +0000
+    # RFC-valid offsets are within ±14 hours and minutes 00-59. Anything outside is coerced to UTC.
+    tz_match = re.search(r"([+-])(\d{2})(\d{2})(?!\d)", email_date)
+    if tz_match:
+        sign, hours_str, minutes_str = tz_match.groups()
+        try:
+            hours = int(hours_str)
+            minutes = int(minutes_str)
+            if hours > 14 or minutes > 59:
+                email_date = email_date[: tz_match.start()] + "+0000" + email_date[tz_match.end() :]
+        except ValueError:
+            # If parsing fails for any reason, coerce to UTC as a safe default
+            email_date = email_date[: tz_match.start()] + "+0000" + email_date[tz_match.end() :]
     if email_date[:3].isalpha() and email_date[-3] != ":" and email_date[-6] == "_":
         return datetime.strptime(email_date.split(".")[0], "%a, %d %b %Y %H:%M:%S %z")
     elif email_date[:3].isalpha() and email_date[-3] != ":" and "(" in email_date:
