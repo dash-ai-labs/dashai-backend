@@ -16,6 +16,7 @@ from src.routes import (
     settings_router,
     task_router,
     telnyx_router,
+    stripe_router,
 )
 
 load_dotenv()
@@ -113,6 +114,7 @@ app.include_router(task_router)
 app.include_router(notification_router)
 app.include_router(settings_router)
 app.include_router(telnyx_router, prefix="/webhooks")
+app.include_router(stripe_router, prefix="/stripe")
 
 
 @app.get("/health")

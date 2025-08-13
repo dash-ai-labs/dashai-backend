@@ -6,30 +6,23 @@ import secrets
 from datetime import datetime, timedelta
 
 import jwt
-import stripe
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import String, cast
 
 from src.celery_tasks import delete_user, ingest_email
 from src.database import EmailAccount, EmailProvider, Token, User, get_db
-from src.database.notification import Notification
 from src.database.user import MembershipStatus
 from src.database.waitlist import OffWaitlist
 from src.libs.const import (
     DISCORD_USER_ALERTS_CHANNEL,
     SECRET_KEY,
-    STAGE,
-    STRIPE_SECRET_KEY,
 )
 from src.libs.discord_service import send_discord_message
-from src.libs.types import STAGE_TYPE
 from src.routes.middleware import ALGORITHM, get_user_id
 from src.services import FlowService, GoogleProfileService, OutlookService
 
 router = APIRouter()
-
-stripe.api_key = STRIPE_SECRET_KEY
 
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 
@@ -64,40 +57,6 @@ async def outlook_auth_url():
     )
     state = base64.urlsafe_b64encode(json.dumps({"code_verifier": code_verifier}).encode()).decode()
     return {"url": outlook_service.authorize_url(state=state, code_challenge=code_challenge)}
-
-
-def _create_subscription(user: User):
-    customer = stripe.Customer.create(email=user.email, name=user.name)
-    pricing_id = (
-        "price_1RIJqcH77fbQTfphHxKGuWL1"
-        if STAGE == STAGE_TYPE.PRODUCTION
-        else "price_1RIbQXH77fbQTfphp3iQCvox"
-    )
-    subscription = stripe.Subscription.create(
-        customer=customer.id,
-        items=[{"price": pricing_id}],
-        trial_period_days=14,
-    )
-    return_url = (
-        "https://app.getdash.ai" if STAGE == STAGE_TYPE.PRODUCTION else "http://localhost:5173"
-    )
-    checkout_session = stripe.checkout.Session.create(
-        mode="setup",  # <-- Important: we're just collecting payment method
-        customer=customer.id,  # Your Stripe customer ID
-        setup_intent_data={
-            "metadata": {"subscription_id": subscription.id}  # Your created subscription ID
-        },
-        currency="usd",
-        success_url=return_url,
-    )
-
-    notification = Notification(
-        user=user,
-        title="Welcome to Dash AI! Your 14 day trial has started.",
-        message="You have access to all features for the next 14 days. To continue using Dash AI, please upgrade to a paid plan.",
-        link=checkout_session.url,
-    )
-    return notification
 
 
 @router.delete("/user/{user_id}")
@@ -188,8 +147,7 @@ async def outlook_callback(callback: Callback):
                 waitlisted=waitlist,
                 membership_status=MembershipStatus.TRIAL,
             )
-            notification = _create_subscription(user)
-            db.add(notification)
+
             send_discord_message(f"User {user.email} has signed up", DISCORD_USER_ALERTS_CHANNEL)
         email_account = EmailAccount.get_or_create_email_account(
             db, EmailProvider.OUTLOOK, user, user_info["mail"]
@@ -325,8 +283,7 @@ async def google_callback(callback: Callback):
                 waitlisted=waitlist,
                 membership_status=MembershipStatus.TRIAL,
             )
-            notification = _create_subscription(user)
-            db.add(notification)
+
             send_discord_message(f"User {user.email} has signed up", DISCORD_USER_ALERTS_CHANNEL)
         user.profile_pic = user_info.get("picture")
 
