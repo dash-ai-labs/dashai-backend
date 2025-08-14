@@ -64,7 +64,7 @@ Now classify this email:
 
     try:
         api_response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5-nano",
             max_tokens=40,
             temperature=0,   # deterministic output
             top_p=1,
