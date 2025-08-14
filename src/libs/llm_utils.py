@@ -17,7 +17,7 @@ multi_shot_examples = [
     # },
     {
         "text": """iCloud+ with 50 GB (Monthly) Renews August 29, 2025 $1.29 Billing and Payment 
-        NS B2W 0M2 Canada Subtotal $1.29 GST/HST $0.18 Visa •••• 9999 $1.47 
+        NS Canada Subtotal $1.29 GST/HST $0.18 Visa •••• 9999 $1.47 
         If you have any questions about your bill, please contact support. 
         This email confirms payment for the iCloud+ plan listed above. 
         You will be billed each plan period until you cancel by downgrading to the free storage plan from your 
@@ -76,7 +76,7 @@ Now classify this email:
             functions=[
                 {
                     "name": "category_results",
-                    "description": "Reports all applicable email categories",
+                    "description": "Reports the most applicable email category",
                     "parameters": {
                         "type": "object",
                         "properties": {
