@@ -34,7 +34,7 @@ def classify_email(email: str):
         example_text += f"Email:\n{example['text']}\nCategories: {example['categories']}\n\n"
 
     system_prompt = f"""
-You are an AI assistant trained to classify emails into exactly one or more of these categories:
+You are an AI assistant trained to classify emails into exactly one of these categories:
 
 - urgent: Requires immediate attention from the user.
 - actionable: Requires user action but not urgent.
@@ -43,13 +43,8 @@ You are an AI assistant trained to classify emails into exactly one or more of t
 - promo: Promotional or marketing content.
 - other: Does not fit any of the above categories.
 
-Notes:
-- 'urgent' and 'information' are mutually exclusive.
-- 'actionable' and 'information' are mutually exclusive.
-- 'promo' and 'information' are mutually exclusive.
-- 'newsletter' and 'information' are mutually exclusive.
 
-Classify the emails below into one or more categories from the list above.
+Classify the email below into one category from the list above.
 
 Only output the categories as a JSON array.
 
