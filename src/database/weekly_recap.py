@@ -24,22 +24,18 @@ class WeeklyEmailRecap(Base):
     categories = Column(ARRAY(String))
 
     @classmethod
-    def create_recap(cls, db, email_account_id, emails, summary=None, week_start=None, week_end=None):
-        """Create and store one weekly recap row per email."""
+    def add_to_latest_recap(cls, db, email_account_id, emails):
+        """Add emails from this week to weekly recap"""
 
-        # clear old emails before inserting new
-        cls.clear_old_recaps_except_new_week(db, email_account_id)
-
-        if not week_start or not week_end:
-            week_start = date.today() - timedelta(days=date.today().weekday())  # Monday
-            week_end = week_start + timedelta(days=6)  # Sunday
+        week_start = date.today() - timedelta(days=date.today().weekday())  # Monday
+        week_end = week_start + timedelta(days=6)  # Sunday
     
         recaps = []
         for email in emails:
             recap = cls(
                 week_start=week_start,
                 week_end=week_end,
-                summary=summary,
+                summary=email.summary,
                 email_account_id=email_account_id,
                 email_id=email.id,
                 categories=email.categories
@@ -48,20 +44,3 @@ class WeeklyEmailRecap(Base):
             recaps.append(recap)
     
         db.commit()
-    
-    @classmethod
-    def clear_old_recaps_except_new_week(cls, db, email_account_id):
-        today = date.today()
-        current_week_start = today - timedelta(days=today.weekday())  # Monday this week
-        
-        delete_query = (
-            db.query(cls)
-            .filter(
-                cls.email_account_id == email_account_id,
-                cls.week_end < current_week_start
-            )
-        )
-
-        deleted_count = delete_query.delete(synchronize_session="fetch")
-        db.commit()
-        return deleted_count
