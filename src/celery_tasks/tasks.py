@@ -762,7 +762,7 @@ def add_to_weekly_recap(user_id: str = None):
                                 EmailFolder.DRAFTS.value,
                             ]
                         ),
-                        Email.created_at <= one_week_ago,
+                        Email.created_at >= one_week_ago,
                     )
                     .all()
                 )
