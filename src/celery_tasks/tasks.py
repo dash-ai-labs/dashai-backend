@@ -2,6 +2,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import List, Set
+from collections import defaultdict
 
 from celery import shared_task
 from sqlalchemy.exc import SQLAlchemyError
@@ -25,6 +26,7 @@ from src.libs.types import EmailFolder
 from src.libs.llm_utils import classify_email
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
+from src.database.weekly_recap import WeeklyEmailRecap
 
 MINUTES = 60 * 24
 BACKFILL_DAYS = 3
@@ -543,6 +545,7 @@ def embed_new_emails(user_id: str = None):
             # Process emails in batches of 20
             print("Embedding emails and storing in VectorDB for user: ", user_id)
             processed_email_count = 0
+            
             for email in emails:
                 # classify email
                 if not email.categories:
@@ -550,7 +553,7 @@ def embed_new_emails(user_id: str = None):
                     email.categories = category
                     db.add(email)
                     db.commit()
-
+    
                 Contact.get_or_create_contact(
                     db,
                     email_account_id=str(email.email_account_id),
@@ -565,6 +568,7 @@ def embed_new_emails(user_id: str = None):
                     db.commit()
 
             print("Finished embedding and storing in VectorDB for user: ", user_id)
+            
 
             print(f"Generating summaries for {len(emails)} emails...")
             for email in tqdm(emails, desc="Summarizing emails", unit="email"):
@@ -732,3 +736,46 @@ def mark_emails_as_shown(email_ids: List[str]):
                 contacts = db.query(Contact).filter(Contact.email_address.in_(email.sender))
                 for contact in contacts:
                     contact.increment_score(db, -1)
+
+@shared_task(name="add_weekly_recap")
+def add_to_weekly_recap(user_id: str = None):
+    with get_db() as db:
+        if user_id:
+            users = [db.query(User).filter(User.id == user_id).first()]
+        else:
+            users = db.query(User).all()
+        
+        for user in users:
+            user_id = user.id
+            if user.membership_status == MembershipStatus.INACTIVE:
+                continue
+            one_week_ago = datetime.now() - timedelta(days=7)
+
+            emails = (
+                    db.query(Email)
+                    .filter(
+                        Email.email_account.has(user_id=user_id),
+                        Email.folder.notin_(
+                            [
+                                EmailFolder.TRASH.value,
+                                EmailFolder.SPAM.value,
+                                EmailFolder.DRAFTS.value,
+                            ]
+                        ),
+                        Email.created_at >= one_week_ago,
+                    )
+                    .all()
+                )
+
+            weekly_recap_emails_by_account = defaultdict(list)
+
+            for email in emails:
+                if email.categories and any(cat in email.categories for cat in ['newsletter', 'promo']):
+                    weekly_recap_emails_by_account[email.email_account_id].append(email)
+
+            for account_id, recap_emails in weekly_recap_emails_by_account.items():
+                WeeklyEmailRecap.add_to_latest_recap(
+                    db=db,
+                    email_account_id=account_id,
+                    emails=recap_emails,
+                )
