@@ -14,8 +14,6 @@ class WeeklyEmailRecap(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     week_start = Column(DateTime, nullable=False)
     week_end = Column(DateTime, nullable=False)
-    summary = Column(UnicodeText, nullable=True)
-
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"), nullable=False)
     email_account = relationship("EmailAccount", back_populates="weekly_email_recap")
 
