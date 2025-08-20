@@ -18,11 +18,12 @@ from src.database.email_label import EmailLabel
 from src.database.notification import Notification
 from src.database.settings import Settings
 from src.database.user import MembershipStatus
+from src.database.weekly_recap import WeeklyEmailRecap
 from src.libs.const import DISCORD_USER_ALERTS_CHANNEL
 from src.libs.discord_service import send_discord_message
+from src.libs.llm_utils import classify_email
 from src.libs.text_utils import summarize_text
 from src.libs.types import EmailFolder
-from src.libs.llm_utils import classify_email
 from src.services import GmailService
 from src.services.outlook_service import OutlookService
 
@@ -41,6 +42,7 @@ logging.getLogger("llama_index").setLevel(logging.ERROR)
 logging.getLogger("openai").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # openai uses httpx under the hood
 logging.getLogger("pinecone").setLevel(logging.ERROR)
+
 
 @shared_task(name="ingest_email")
 def ingest_email(email_account_id: str):
@@ -511,6 +513,19 @@ def _finalize_account_sync(db: Session, email_account: EmailAccount):
         db.rollback()
 
 
+def _check_and_add_to_weekly_recap(db: Session, email_account_id: str, emails: List[Email]):
+    emails_to_add = []
+    for email in emails:
+        if (
+            email.categories.contains("newsletter")
+            or email.categories.contains("promo")
+            or email.categories.contains("other")
+        ):
+            emails_to_add.append(email.id)
+    if emails_to_add:
+        WeeklyEmailRecap.add_to_latest_recap(db, email_account_id, emails_to_add)
+
+
 @shared_task(name="embed_new_emails")
 def embed_new_emails(user_id: str = None):
     with get_db() as db:
@@ -541,13 +556,15 @@ def embed_new_emails(user_id: str = None):
             )
 
             # Process emails in batches of 20
-            print("Embedding emails and storing in VectorDB for user: ", user_id)
+            logger.info(f"Embedding emails and storing in VectorDB for user: {user_id}")
             processed_email_count = 0
+
             for email in emails:
                 # classify email
                 if not email.categories:
                     category, _ = classify_email(email.content)
                     email.categories = category
+
                     db.add(email)
                     db.commit()
 
@@ -564,9 +581,13 @@ def embed_new_emails(user_id: str = None):
                     db.add(email)
                     db.commit()
 
-            print("Finished embedding and storing in VectorDB for user: ", user_id)
+            logger.info(f"Finished embedding and storing in VectorDB for user: {user_id}")
 
-            print(f"Generating summaries for {len(emails)} emails...")
+            _check_and_add_to_weekly_recap(db, user_id, emails)
+
+            logger.info(f"Added emails to weekly recap for user: {user_id}")
+
+            logger.info(f"Generating summaries for {len(emails)} emails...")
             for email in tqdm(emails, desc="Summarizing emails", unit="email"):
                 if email.summary is None:
                     summary = summarize_text(
@@ -575,7 +596,7 @@ def embed_new_emails(user_id: str = None):
                     email.summary = summary
                     db.add(email)
             db.commit()
-            print("Finished generating summaries.")
+            logger.info("Finished generating summaries.")
 
 
 @shared_task(name="embed_new_attachments")
@@ -732,3 +753,33 @@ def mark_emails_as_shown(email_ids: List[str]):
                 contacts = db.query(Contact).filter(Contact.email_address.in_(email.sender))
                 for contact in contacts:
                     contact.increment_score(db, -1)
+
+
+@shared_task(name="create_weekly_recap")
+def create_weekly_recap(user_id: str = None):
+    with get_db() as db:
+        if user_id:
+            users = [db.query(User).filter(User.id == user_id).first()]
+        else:
+            users = db.query(User).all()
+
+        for user in users:
+            user_id = user.id
+            if user.membership_status == MembershipStatus.INACTIVE:
+                continue
+
+            email_accounts = db.query(EmailAccount).filter(EmailAccount.user_id == user_id).all()
+            for email_account in email_accounts:
+                if latest_recap := WeeklyEmailRecap.get_latest_recap(
+                    db, email_account_id=email_account.id
+                ):
+                    latest_recap.completed = True
+                    db.add(latest_recap)
+
+                new_weekly_recap = WeeklyEmailRecap(
+                    email_account_id=email_account.id,
+                    week_start=datetime.now(),
+                    week_end=datetime.now() + timedelta(days=7),
+                )
+                db.add(new_weekly_recap)
+                db.commit()

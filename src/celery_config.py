@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 from src.libs.const import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
@@ -35,6 +36,10 @@ celery.conf.beat_schedule = {
     "run-every-15-minutes-follow-up-actions": {
         "task": "follow_up_actions",
         "schedule": 15 * 60,  # 15 minutes
+    },
+    "run-every-7-days-create-weekly-recap": {
+        "task": "create_weekly_recap",
+        "schedule": crontab(day_of_week=0, hour=0, minute=0),  # 7 days
     },
     # "run-every-day-at-7am": {  # Updated task name
     #     "task": "get_new_transactions",
