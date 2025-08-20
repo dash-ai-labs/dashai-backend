@@ -1,11 +1,13 @@
 # src/database/weekly_email_recap.py
 import uuid
-from datetime import datetime, date, timedelta
-from sqlalchemy import UUID, Column, DateTime, ForeignKey, String, UnicodeText
+from datetime import datetime
+
+from sqlalchemy import UUID, Boolean, Column, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Session, relationship
 
 from src.database.db import Base
+
 
 class WeeklyEmailRecap(Base):
     __tablename__ = "weekly_email_recaps"
@@ -16,25 +18,24 @@ class WeeklyEmailRecap(Base):
     week_end = Column(DateTime, nullable=False)
     email_account_id = Column(UUID, ForeignKey("email_accounts.id"), nullable=False)
     email_account = relationship("EmailAccount", back_populates="weekly_email_recap")
-
+    completed = Column(Boolean, default=False)
     # store all email IDs for the recap in this array
     email_ids = Column(ARRAY(UUID), default=list)
 
     @classmethod
-    def add_to_latest_recap(cls, db, email_account_id, emails):
+    def add_to_latest_recap(cls, db: Session, email_account_id, emails):
         """Add emails from this week to weekly recap"""
+        if latest_recap := cls.get_latest_recap(db, email_account_id):
+            email_ids = [email.id for email in emails]
+            latest_recap.email_ids.extend(email_ids)
+            db.add(latest_recap)
+            db.commit()
 
-        week_start = date.today() - timedelta(days=date.today().weekday())  # Monday
-        week_end = week_start + timedelta(days=6)  # Sunday
-
-        email_ids = [email.id for email in emails]
-
-        recap = cls(
-            week_start=week_start,
-            week_end=week_end,
-            email_account_id=email_account_id,
-            email_ids=email_ids,
+    @classmethod
+    def get_latest_recap(cls, db: Session, email_account_id):
+        return (
+            db.query(cls)
+            .filter(cls.email_account_id == email_account_id)
+            .order_by(WeeklyEmailRecap.week_start.desc())
+            .first()
         )
-        
-        db.add(recap)
-        db.commit()

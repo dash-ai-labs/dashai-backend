@@ -1,5 +1,7 @@
 import json
+
 import openai
+
 from src.libs.const import OPENAI_API_KEY
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
