@@ -35,13 +35,62 @@ def email_date_converter(email_date):
     elif email_date[:3].isalpha() and email_date[-3] != ":" and "(" in email_date:
         return datetime.strptime(email_date.split(" (")[0], "%a, %d %b %Y %H:%M:%S %z")
     elif email_date[:3].isalpha() and email_date[-3] != ":":
-        return datetime.strptime(email_date, "%a, %d %b %Y %H:%M:%S %z")
+        # Handle microseconds by trying with and without them
+        try:
+            return datetime.strptime(email_date, "%a, %d %b %Y %H:%M:%S %z")
+        except ValueError:
+            # Try with microseconds
+            try:
+                return datetime.strptime(email_date, "%a, %d %b %Y %H:%M:%S.%f %z")
+            except ValueError:
+                # If there's extra data after microseconds, try to extract just the valid part
+                # Remove anything after the timezone offset
+                tz_pattern = r"([+-]\d{4})"
+                tz_match = re.search(tz_pattern, email_date)
+                if tz_match:
+                    clean_date = email_date[: tz_match.end()]
+                    try:
+                        return datetime.strptime(clean_date, "%a, %d %b %Y %H:%M:%S.%f %z")
+                    except ValueError:
+                        return datetime.strptime(clean_date, "%a, %d %b %Y %H:%M:%S %z")
+                raise
     elif email_date[-3] == ":":
-        return datetime.strptime(email_date, "%a, %d %b %Y %H:%M:%S")
+        # Handle microseconds for timezone-less format
+        try:
+            return datetime.strptime(email_date, "%a, %d %b %Y %H:%M:%S")
+        except ValueError:
+            try:
+                return datetime.strptime(email_date, "%a, %d %b %Y %H:%M:%S.%f")
+            except ValueError:
+                # Extract just the datetime part if there's extra data
+                if "." in email_date:
+                    # Find the seconds part and keep up to 6 digits for microseconds
+                    parts = email_date.split(".")
+                    if len(parts) > 1:
+                        microsec_part = parts[1][:6]  # Take only first 6 digits for microseconds
+                        clean_date = parts[0] + "." + microsec_part
+                        return datetime.strptime(clean_date, "%a, %d %b %Y %H:%M:%S.%f")
+                raise
     elif email_date.count("-") == 2:
         return datetime.strptime(email_date, "%d-%m-%Y")
     else:
-        return datetime.strptime(email_date, "%d %b %Y %H:%M:%S %z")
+        # Handle microseconds for fallback format
+        try:
+            return datetime.strptime(email_date, "%d %b %Y %H:%M:%S %z")
+        except ValueError:
+            try:
+                return datetime.strptime(email_date, "%d %b %Y %H:%M:%S.%f %z")
+            except ValueError:
+                # Remove extra data after timezone if present
+                tz_pattern = r"([+-]\d{4})"
+                tz_match = re.search(tz_pattern, email_date)
+                if tz_match:
+                    clean_date = email_date[: tz_match.end()]
+                    try:
+                        return datetime.strptime(clean_date, "%d %b %Y %H:%M:%S.%f %z")
+                    except ValueError:
+                        return datetime.strptime(clean_date, "%d %b %Y %H:%M:%S %z")
+                raise
 
 
 class AbstractMessage(ABC):

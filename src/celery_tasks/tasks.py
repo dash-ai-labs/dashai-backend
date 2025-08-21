@@ -517,9 +517,9 @@ def _check_and_add_to_weekly_recap(db: Session, email_account_id: str, emails: L
     emails_to_add = []
     for email in emails:
         if (
-            email.categories.contains("newsletter")
-            or email.categories.contains("promo")
-            or email.categories.contains("other")
+            "newsletter" in email.categories
+            or "promo" in email.categories
+            or "other" in email.categories
         ):
             emails_to_add.append(email.id)
     if emails_to_add:
