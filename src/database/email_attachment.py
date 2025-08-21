@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta
 
@@ -20,6 +21,9 @@ pinecone = VectorDB()
 
 if STAGE == "production":
     storage_client = storage.Client.from_service_account_info(json.loads(GCP_BUCKET_CREDENTIALS))
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.WARNING)
 
 
 class EmailAttachment(Base):
@@ -65,14 +69,18 @@ class EmailAttachment(Base):
             self.content_type = content_type
         if size:
             self.size = size
-        
+
     def to_dict(self):
-        return {
-            "name" : self.name,
-	    "content_type" : self.content_type,
-	    "url" : self.url,
-	    "size": self.size
-        }
+        try:
+            return {
+                "name": self.name,
+                "content_type": self.content_type,
+                "url": self.url,
+                "size": self.size,
+            }
+        except Exception as e:
+            logger.error(f"Warning: Failed to serialize attachment {self.id}: {e}")
+            return None
 
     def _create_document(self, filepath: str):
         documents = SimpleDirectoryReader(
