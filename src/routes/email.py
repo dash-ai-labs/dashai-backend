@@ -33,16 +33,32 @@ class LabelActionType(Enum):
 async def get_emails_count(
     user_id: str,
     folder: EmailFolder,
+    category: Optional[str] = Query(default=None),
     user=Depends(get_user_id),
 ):
     if user_id == user.get("user_id"):
         with get_db() as db:
-            return (
-                db.query(Email)
-                .join(EmailAccount, Email.email_account_id == EmailAccount.id)
-                .filter(Email.folder == folder, EmailAccount.user_id == user_id)
-                .count()
-            )
+            if category:
+                category = category.split(",")
+                print(category)
+                return (
+                    db.query(Email)
+                    .join(EmailAccount, Email.email_account_id == EmailAccount.id)
+                    .filter(
+                        Email.folder == folder,
+                        EmailAccount.user_id == user_id,
+                        Email.categories.overlap(category),
+                    )
+                    .count()
+                )
+            else:
+                return (
+                    db.query(Email)
+                    .join(EmailAccount, Email.email_account_id == EmailAccount.id)
+                    .filter(Email.folder == folder, EmailAccount.user_id == user_id)
+                    .count()
+                )
+
     raise HTTPException(status_code=401, detail="Unauthorized")
 
 
@@ -98,7 +114,8 @@ async def get_emails(
 
                 if category:
                     # Use any() to check if any element in categories array matches any element in category list
-                    filters = [Email.categories.any(cat) for cat in category]
+                    filters = (Email.categories.overlap(category),)
+
                     email_query = email_query.filter(
                         or_(*filters) if len(filters) > 1 else filters[0]
                     )
