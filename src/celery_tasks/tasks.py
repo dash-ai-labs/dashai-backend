@@ -565,7 +565,7 @@ def embed_new_emails(user_id: str = None):
                     category, res = classify_email(email.content)
                     if not category or len(category) == 0 or category == ["error"]:
                         logger.error(
-                            f"Error classifying email {email.id}: {email.content}. Response: {res.to_json()}"
+                            f"Error classifying email {email.id}: {email.content}. Response: {res}"
                         )
                     else:
                         email.categories = category
