@@ -40,7 +40,6 @@ async def get_emails_count(
         with get_db() as db:
             if category:
                 category = category.split(",")
-                print(category)
                 return (
                     db.query(Email)
                     .join(EmailAccount, Email.email_account_id == EmailAccount.id)

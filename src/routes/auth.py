@@ -242,7 +242,6 @@ async def google_callback(callback: Callback):
         oauth_token=credentials.token, refresh_token=credentials.refresh_token
     )
     user_info = google_profile_service.get_profile()
-    print(user_info)
     with get_db() as db:
         if user_id:
             user = db.query(User).filter(User.id == user_id).first()

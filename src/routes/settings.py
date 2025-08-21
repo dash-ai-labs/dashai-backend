@@ -40,7 +40,6 @@ async def update_settings(
 
 @router.get("/user/{user_id}/email_account/{email_account_id}/settings")
 async def get_settings(user_id: str, email_account_id: str, user=Depends(get_user_id)):
-    print(user_id, email_account_id)
     if user_id == user.get("user_id"):
         with get_db() as db:
             settings = Settings.get_or_create_settings(db, email_account_id)
