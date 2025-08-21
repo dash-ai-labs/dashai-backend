@@ -562,11 +562,15 @@ def embed_new_emails(user_id: str = None):
             for email in emails:
                 # classify email
                 if not email.categories:
-                    category, _ = classify_email(email.content)
-                    email.categories = category
-
-                    db.add(email)
-                    db.commit()
+                    category, res = classify_email(email.content)
+                    if category == "error":
+                        logger.error(
+                            f"Error classifying email {email.id}: {email.content}. Response: {res.to_json()}"
+                        )
+                    else:
+                        email.categories = category
+                        db.add(email)
+                        db.commit()
 
                 Contact.get_or_create_contact(
                     db,
