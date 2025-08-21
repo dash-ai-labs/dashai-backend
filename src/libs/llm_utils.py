@@ -9,11 +9,11 @@ client = openai.OpenAI(api_key=OPENAI_API_KEY)
 # need more diverse examples
 multi_shot_examples = [
     # {
-    #     "text": """We're happy to confirm you have completed your payment ABC12349567 of CAD C$120.00! 
-    #     You don't need to do anything else, just allow 2-3 business days for us to process and deliver your payment 
-    #     to OUAC . Your institution has access to your payment status on their Flywire Dashboard and can see that 
-    #     your payment has been received. We shall notify you once the payment has been delivered. 
-    #     You can view your payment details DOWNLOAD YOUR RECEIPT Thank you! 💡Did you know? 
+    #     "text": """We're happy to confirm you have completed your payment ABC12349567 of CAD C$120.00!
+    #     You don't need to do anything else, just allow 2-3 business days for us to process and deliver your payment
+    #     to OUAC . Your institution has access to your payment status on their Flywire Dashboard and can see that
+    #     your payment has been received. We shall notify you once the payment has been delivered.
+    #     You can view your payment details DOWNLOAD YOUR RECEIPT Thank you! 💡Did you know?
     #     You can sign up to receive future offers and promotions from Flywire. Sign up here""",
     #     "categories": ["information"]
     # },
@@ -25,9 +25,10 @@ multi_shot_examples = [
         You will be billed each plan period until you cancel by downgrading to the free storage plan from your 
         iOS device, Mac or PC. You may contact Apple for a full refund within 15 days of a monthly subscription 
         upgrade or within 45 days of a yearly payment. Partial refunds are available where required by law.""",
-        "categories": ["information"]
+        "categories": ["information"],
     },
 ]
+
 
 def classify_email(email: str):
     # Compose few-shot examples in prompt form
@@ -50,8 +51,6 @@ Classify the email below into one category from the list above.
 
 Only output the categories as a JSON array.
 
-If the email is corrupted or contains multiple unrelated emails, output ['error'].
-
 Examples:
 
 {example_text}
@@ -63,7 +62,7 @@ Now classify this email:
         api_response = client.chat.completions.create(
             model="gpt-5-nano",
             max_tokens=40,
-            temperature=0,   # deterministic output
+            temperature=0,  # deterministic output
             top_p=1,
             messages=[
                 {"role": "system", "content": system_prompt},
