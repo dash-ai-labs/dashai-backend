@@ -91,8 +91,7 @@ def classify_email(email: str):
             tools=tools,
             input=input_message,
         )
-
-        return [api_response.output_text], api_response.reasoning
+        return json.loads(api_response.output_text), api_response.reasoning
 
     except Exception as e:
         return ["error"], str(e)
