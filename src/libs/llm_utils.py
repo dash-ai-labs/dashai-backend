@@ -37,68 +37,62 @@ def classify_email(email: str):
         example_text += f"Email:\n{example['text']}\nCategories: {example['categories']}\n\n"
 
     system_prompt = f"""
-You are an AI assistant trained to classify emails into exactly one of these categories:
+        You are an AI assistant trained to classify emails into exactly one of these categories:
 
-- urgent: Requires immediate attention from the user.
-- actionable: Requires user action but not urgent.
-- information: Informative only, no action required.
-- newsletter: Regular updates or news sent periodically.
-- promo: Promotional or marketing content.
-- other: Does not fit any of the above categories.
+        - urgent: Requires immediate attention from the user.
+        - actionable: Requires user action but not urgent.
+        - information: Informative only, no action required.
+        - newsletter: Regular updates or news sent periodically.
+        - promo: Promotional or marketing content.
+        - other: Does not fit any of the above categories.
 
+        Classify the email below into one category from the list above.
 
-Classify the email below into one category from the list above.
+        Only output the categories as a JSON array.
 
-Only output the categories as a JSON array.
+        Now classify this email:
 
-Examples:
+        {email}
+    """
 
-{example_text}
-
-Now classify this email:
-"""
+    tools = [
+        {
+            "type": "function",
+            "name": "category_results",
+            "description": "Reports the most applicable email category",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "urgent",
+                            "actionable",
+                            "information",
+                            "newsletter",
+                            "promo",
+                            "other",
+                        ],
+                        "description": "One category",
+                    },
+                },
+                "required": ["category"],
+            },
+        },
+    ]
+    input_message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": email},
+    ]
 
     try:
-        api_response = client.chat.completions.create(
+        api_response = client.responses.create(
             model="gpt-5-nano",
-            max_tokens=40,
-            temperature=0,  # deterministic output
-            top_p=1,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": email},
-            ],
-            function_call={"name": "category_results"},
-            functions=[
-                {
-                    "name": "category_results",
-                    "description": "Reports the most applicable email category",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "category": {
-                                "type": "string",
-                                "enum": [
-                                    "urgent",
-                                    "actionable",
-                                    "information",
-                                    "newsletter",
-                                    "promo",
-                                    "other",
-                                ],
-                                "description": "One category",
-                            },
-                        },
-                        "required": ["category"],
-                    },
-                }
-            ],
+            tools=tools,
+            input=input_message,
         )
-        func_call = api_response.choices[0].message.function_call
-        args = json.loads(func_call.arguments)
-        categories = args["category"]
 
-        return categories, func_call
+        return api_response.output_text, api_response.reasoning
 
     except Exception as e:
         return ["error"], str(e)
