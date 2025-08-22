@@ -515,8 +515,9 @@ def _finalize_account_sync(db: Session, email_account: EmailAccount):
 
 def _check_and_add_to_weekly_recap(db: Session, email_account_id: str, emails: List[Email]):
     emails_to_add = []
+
     for email in emails:
-        if (
+        if email.categories and (
             "newsletter" in email.categories
             or "promo" in email.categories
             or "other" in email.categories
