@@ -70,9 +70,6 @@ class Email(Base):
         "EmailLabel", secondary=email_lable_association_table, back_populates="emails"
     )
     attachments = relationship("EmailAttachment", back_populates="email")
-    __table_args__ = (
-        UniqueConstraint("email_account_id", "email_id", name="unique_email_account_id_email_id"),
-    )
 
     def __init__(
         self,
