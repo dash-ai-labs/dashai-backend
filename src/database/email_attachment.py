@@ -139,7 +139,7 @@ class EmailAttachment(Base):
                 f.write(attachment_data)
             pinecone.insert(attachment._create_document(f"/temp_file_storage/{filepath}"), user_id)
         except Exception as e:
-            print(f"Error embedding attachment: {attachment.id} to Pinecone: ", e)
+            print(f"Error embedding attachment: {attachment.id} to VectorDB: ", e)
             return False
 
         return True

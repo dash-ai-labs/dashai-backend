@@ -25,7 +25,7 @@ Dash AI is built with modern and reliable technologies:
 
 - **Frontend**: Svelte, TypeScript, TailwindCSS, Shadcn UI, Skeleton UI
 - **Backend**: Python, FastAPI, SQLAlchemy ORM, Celery
-- **Database**: PostgreSQL, Redis, Pinecone Vector Database
+- **Database**: PostgreSQL with pgvector extension, Redis
 - **AI**: OpenAI, XAI
 - **Authentication**: Google OAuth
 
@@ -74,7 +74,6 @@ Before running the application, you'll need to set up several services and envir
         STAGE=
         XAI_API_KEY=
         OPENAI_API_KEY=
-        PINECONE_API_KEY=
      ```
 
    - Add yourself as a test user:
@@ -101,7 +100,6 @@ CELERY_RESULT_BACKEND= # URL for storing the results of Celery tasks.
 STAGE=                # Environment stage indicator (e.g., dev, staging, production).
 XAI_API_KEY=          # API key for accessing the XAI services.
 OPENAI_API_KEY=       # API key for interacting with OpenAI's services.
-PINECONE_API_KEY=     # API key for integrating with the Pinecone vector database.
 ```
 
 ### Update the PostgreSQL database accordingly

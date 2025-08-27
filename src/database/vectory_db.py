@@ -4,13 +4,11 @@ from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI as LLMOpenAI
-from llama_index.vector_stores.pinecone import PineconeVectorStore
+from llama_index.vector_stores.postgres import PGVectorStore
 from openai import OpenAI
-from pinecone import Pinecone
-from pinecone.grpc import PineconeGRPC
 
 from src.libs import SafeSemanticSplitter
-from src.libs.const import OPENAI_API_KEY, PINECONE_API_KEY
+from src.libs.const import OPENAI_API_KEY, DATABASE_URL
 from src.libs.rag_prompts import EMAIL_SUGGESTION_PROMPT, EMAIL_SYSTEM_PROMPT
 
 Settings.chunk_size = 8192
@@ -19,19 +17,22 @@ llm = LLMOpenAI(model="gpt-4o-mini", api_key=OPENAI_API_KEY)
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-pic = Pinecone(api_key=PINECONE_API_KEY)
-
 
 class VectorDB:
     def __init__(
         self,
     ):
-        self.api_key = PINECONE_API_KEY
-        self.pc = PineconeGRPC(api_key=self.api_key)
-        self.index = self.pc.Index("email-index")
-        self.transaction_index = self.pc.Index("transaction-vectors")
-        self.vector_store = PineconeVectorStore(pinecone_index=self.index, add_sparse_vector=True)
-        self.transaction_store = PineconeVectorStore(pinecone_index=self.transaction_index)
+        self.database_url = DATABASE_URL
+        self.vector_store = PGVectorStore.from_params(
+            database=DATABASE_URL,
+            table_name="email_vectors",
+            embed_dim=1536,  # text-embedding-3-small dimension
+        )
+        self.transaction_store = PGVectorStore.from_params(
+            database=DATABASE_URL,
+            table_name="transaction_vectors",
+            embed_dim=1536,
+        )
         self.embed_model = OpenAIEmbedding(api_key=OPENAI_API_KEY, model="text-embedding-3-small")
         Settings.embed_model = self.embed_model
 
@@ -58,25 +59,16 @@ class VectorDB:
             vector_store=self.transaction_store,
         )
 
-    def create_sparse_vector_embedding(self, doc_text):
+    def create_dense_embedding(self, doc_text):
         """
-        Generate sparse vectors for a given document using LlamaIndex.
+        Generate dense vector embeddings using OpenAI.
         """
-        sparse_embedding = pic.inference.embed(
-            model="pinecone-sparse-english-v0",
-            inputs=[doc_text],
-            parameters={"input_type": "passage", "return_tokens": True},
+        embedding = (
+            client.embeddings.create(input=doc_text, model="text-embedding-3-small")
+            .data[0]
+            .embedding
         )
-        return sparse_embedding
-
-    def create_sparse_vector_query(self, doc_text):
-
-        sparse_embedding = pic.inference.embed(
-            model="pinecone-sparse-english-v0",
-            inputs=[doc_text],
-            parameters={"input_type": "query", "return_tokens": True},
-        )
-        return sparse_embedding
+        return embedding
 
     def _metadata_to_json(self, metadata: str):
         # Split the input string into lines
@@ -95,17 +87,18 @@ class VectorDB:
         return data
 
     def insert(self, documents: list[Document], user_id: str):
-        self.pipeline.vector_store = PineconeVectorStore(
-            pinecone_index=self.index, namespace=str(user_id), batch_size=1
-        )
-        self.pipeline.run(documents=documents, namespace=str(user_id))
+        # Add user_id to metadata for filtering
+        for doc in documents:
+            doc.metadata["user_id"] = str(user_id)
 
+        self.pipeline.run(documents=documents)
         return True
 
     def insert_transactions(self, documents: list[Document], user_id: str):
-        self.transaction_pipeline.vector_store = PineconeVectorStore(
-            pinecone_index=self.transaction_index, namespace=str(user_id)
-        )
+        # Add user_id to metadata for filtering
+        for doc in documents:
+            doc.metadata["user_id"] = str(user_id)
+
         response = []
         nodes = self.transaction_pipeline.run(documents=documents)
         for node in nodes:
@@ -118,45 +111,25 @@ class VectorDB:
 
         return response
 
-    def hybrid_score_norm(self, dense, sparse, alpha: float):
-        """Hybrid score using a convex combination
-
-        alpha * dense + (1 - alpha) * sparse
-
-        Args:
-            dense: Array of floats representing
-            sparse: a dict of `indices` and `values`
-            alpha: scale between 0 and 1
-        """
-        if alpha < 0 or alpha > 1:
-            raise ValueError("Alpha must be between 0 and 1")
-        hs = {"indices": sparse["indices"], "values": [v * (1 - alpha) for v in sparse["values"]]}
-        return [v * alpha for v in dense], hs
-
     def query(self, query: str, top_k: int, user_id: str):
-        xq = client.embeddings.create(input=query, model="text-embedding-3-small").data[0].embedding
-        sparse_vector = self.create_sparse_vector_query(query)
-        sparse_vec = {
-            "indices": sparse_vector.data[0].sparse_indices,
-            "values": sparse_vector.data[0].sparse_values,
-        }
-        hdense, hsparse = self.hybrid_score_norm(xq, sparse_vec, alpha=0.75)
-
-        res = self.index.query(
-            vector=hdense,
-            top_k=top_k,
-            namespace=user_id,
-            include_metadata=True,
-            sparse_vector=hsparse,
+        index = VectorStoreIndex.from_vector_store(
+            vector_store=self.vector_store,
+            embed_model=self.embed_model,
         )
-        return res
+        query_engine = index.as_query_engine(
+            similarity_top_k=top_k, filters={"user_id": str(user_id)}
+        )
+        response = query_engine.query(query)
+        return response
 
     def chat(self, query: str, top_k: int, user_id: str):
         index = VectorStoreIndex.from_vector_store(
-            vector_store=PineconeVectorStore(pinecone_index=self.index, namespace=str(user_id)),
+            vector_store=self.vector_store,
             embed_model=self.embed_model,
         )
-        query_engine = index.as_query_engine(llm=llm, streaming=True, similarity_top_k=top_k)
+        query_engine = index.as_query_engine(
+            llm=llm, streaming=True, similarity_top_k=top_k, filters={"user_id": str(user_id)}
+        )
         formatted_query = EMAIL_SYSTEM_PROMPT + query
         response = query_engine.query(formatted_query)
 
@@ -172,12 +145,17 @@ class VectorDB:
         top_k: int = 50,
         writing_style="",
     ):
+        # Combine user_id filter with any additional filters
+        combined_filter = {"user_id": str(user_id)}
+        if filter:
+            combined_filter.update(filter)
+
         index = VectorStoreIndex.from_vector_store(
-            vector_store=PineconeVectorStore(pinecone_index=self.index, namespace=str(user_id)),
+            vector_store=self.vector_store,
             embed_model=self.embed_model,
         )
         query_engine = index.as_query_engine(
-            llm=llm, streaming=True, similarity_top_k=top_k, filter=filter
+            llm=llm, streaming=True, similarity_top_k=top_k, filters=combined_filter
         )
         formatted_query = (
             EMAIL_SUGGESTION_PROMPT.format(user=name, writing_style=writing_style) + query
@@ -186,11 +164,17 @@ class VectorDB:
         for text in response.response_gen:
             yield json.dumps({"data": text}) + "\n"
 
-    def list(self, namespace: str):
-        return self.index.list(namespace=str(namespace))
+    def list(self, user_id: str):
+        # PGVector doesn't have a direct list equivalent
+        # This would need to be implemented as a database query if needed
+        raise NotImplementedError("List operation not implemented for PGVector")
 
-    def get(self, ids, namespace: str):
-        return self.index.fetch(ids=ids, namespace=str(namespace))
+    def get(self, ids, user_id: str):
+        # PGVector doesn't have a direct get equivalent
+        # This would need to be implemented as a database query if needed
+        raise NotImplementedError("Get operation not implemented for PGVector")
 
-    def update(self, id, namespace: str, update_metadata_dict: dict):
-        return self.index.update(id=id, namespace=str(namespace), set_metadata=update_metadata_dict)
+    def update(self, id, user_id: str, update_metadata_dict: dict):
+        # PGVector doesn't have a direct update equivalent
+        # This would need to be implemented as a database query if needed
+        raise NotImplementedError("Update operation not implemented for PGVector")

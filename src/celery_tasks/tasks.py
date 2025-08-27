@@ -41,7 +41,6 @@ logging.basicConfig(level=logging.WARNING)
 logging.getLogger("llama_index").setLevel(logging.ERROR)
 logging.getLogger("openai").setLevel(logging.ERROR)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # openai uses httpx under the hood
-logging.getLogger("pinecone").setLevel(logging.ERROR)
 
 
 @shared_task(name="ingest_email")
