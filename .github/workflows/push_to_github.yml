@@ -42,16 +42,16 @@ jobs:
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
     
-    steps:
-      - name: Install doctl
-        uses: digitalocean/action-doctl@v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+  #   steps:
+  #     - name: Install doctl
+  #       uses: digitalocean/action-doctl@v2
+  #       with:
+  #         token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
-      - name: Deploy to DigitalOcean App Platform
-        run: |
-          doctl apps create-deployment ${{ secrets.DIGITALOCEAN_APP_ID }} --force-rebuild
+  #     - name: Deploy to DigitalOcean App Platform
+  #       run: |
+  #         doctl apps create-deployment ${{ secrets.DIGITALOCEAN_APP_ID }} --force-rebuild
