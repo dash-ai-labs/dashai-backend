@@ -7,7 +7,7 @@ from src.database.email import Email
 from src.database.vectory_db import VectorDB
 from src.libs.rag_utils import clean_up_text
 
-pinecone = VectorDB()
+vector_db = VectorDB()
 
 CHUNK_SIZE = 50
 
@@ -30,7 +30,7 @@ class EmailVector(BaseModel):
         # If email has content, create a document
         if email.content:
             document = cls._create_document(email)
-            inserted_record = pinecone.insert([document], user_id)
+            inserted_record = vector_db.insert([document], user_id)
 
             # Mark email as processed
             email.processed = True
@@ -102,7 +102,7 @@ class EmailVector(BaseModel):
                 print(e)
                 continue
         try:
-            pinecone.insert(document_list, user_id)
+            vector_db.insert(document_list, user_id)
             # Mark email as processed
         except Exception as e:
             print(

@@ -10,7 +10,7 @@ from src.libs.email_preferences import EMAIL_COMPOSER_PROMPTS
 from src.routes.middleware import get_user_id
 
 router = APIRouter()
-pinecone = VectorDB()
+vector_db = VectorDB()
 
 
 @router.post("/user/{user_id}/suggestion")
@@ -61,7 +61,7 @@ async def create_suggestion(
                 )
 
         return StreamingResponse(
-            pinecone.suggest(
+            vector_db.suggest(
                 user_id=user_id,
                 query=query,
                 filter=filter,

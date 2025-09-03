@@ -11,7 +11,7 @@ from src.libs.types import EmailData, EmailFolder
 from src.routes.middleware import get_user_id
 
 router = APIRouter()
-pinecone = VectorDB()
+vector_db = VectorDB()
 
 
 class ActionType(Enum):
@@ -297,7 +297,7 @@ async def chat_with_email(
         if user_id != user.get("user_id"):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-        return StreamingResponse(pinecone.chat(query, 50, user_id), media_type="application/json")
+        return StreamingResponse(vector_db.chat(query, 50, user_id), media_type="application/json")
 
 
 @router.get("/user/{user_id}/email/search")
@@ -311,7 +311,7 @@ async def search_email(
         if user_id != user.get("user_id"):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
-        res = pinecone.query(query, 20, user_id)
+        res = vector_db.query(query, 20, user_id)
         email_ids = [match["metadata"]["id"] for match in res["matches"]]
         emails = db.query(Email).filter(Email.email_id.in_(email_ids)).all()
         return [email.to_dict() for email in emails]

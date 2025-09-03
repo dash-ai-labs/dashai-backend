@@ -17,7 +17,7 @@ from src.libs.const import GCP_BUCKET_CREDENTIALS, GCP_BUCKET_NAME, STAGE
 from src.services.gmail_service import GmailService
 from src.services.outlook_service import OutlookService
 
-pinecone = VectorDB()
+vector_db = VectorDB()
 
 if STAGE == "production":
     storage_client = storage.Client.from_service_account_info(json.loads(GCP_BUCKET_CREDENTIALS))
@@ -137,7 +137,7 @@ class EmailAttachment(Base):
         try:
             with open(f"/temp_file_storage/{filepath}", "wb") as f:
                 f.write(attachment_data)
-            pinecone.insert(attachment._create_document(f"/temp_file_storage/{filepath}"), user_id)
+            vector_db.insert(attachment._create_document(f"/temp_file_storage/{filepath}"), user_id)
         except Exception as e:
             print(f"Error embedding attachment: {attachment.id} to VectorDB: ", e)
             return False

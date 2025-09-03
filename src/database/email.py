@@ -35,7 +35,7 @@ from src.libs.types import EmailFolder
 from src.services.gmail_service import GmailService
 from src.services.outlook_service import OutlookService
 
-pinecone = VectorDB()
+vector_db = VectorDB()
 
 CHUNK_SIZE = 50
 
@@ -443,7 +443,7 @@ class Email(Base):
             if email.processed:
                 return True
             if email.content:
-                pinecone.insert(email._create_document(), user_id)
+                vector_db.insert(email._create_document(), user_id)
                 return True
 
         except Exception as e:
