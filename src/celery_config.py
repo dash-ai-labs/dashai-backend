@@ -11,7 +11,9 @@ celery = Celery(
 )
 
 
-celery.autodiscover_tasks(["src.celery_tasks.tasks", "src.celery_tasks.call_tasks"])
+celery.autodiscover_tasks(
+    ["src.celery_tasks.tasks", "src.celery_tasks.call_tasks", "src.celery_tasks.ea_tasks"]
+)
 celery.conf.update(
     task_serializer="json",
     result_serializer="json",
