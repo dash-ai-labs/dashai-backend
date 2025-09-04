@@ -95,7 +95,11 @@ def daily_morning_report():
                         )
                         .first()
                     ):
-                        date_threshold = earlier_report.sent_at
+                        # Use the earlier report's sent_at time if it exists, otherwise use created_at
+                        if earlier_report.sent_at is not None:
+                            date_threshold = earlier_report.sent_at
+                        else:
+                            date_threshold = earlier_report.created_at
                     email_account_ids = [
                         id_tuple[0]
                         for id_tuple in db.query(EmailAccount.id)
@@ -130,7 +134,6 @@ def daily_morning_report():
                                 daily_report.actionable_email_ids.extend(result.id)
                             else:
                                 daily_report.actionable_email_ids.append(result.id)
-                            daily_report.actionable_email_ids.append(result.id)
                             actionable_results.append(result)
 
                     # Process informational emails
@@ -162,7 +165,6 @@ def daily_morning_report():
                                 daily_report.information_email_ids.extend(result.id)
                             else:
                                 daily_report.information_email_ids.append(result.id)
-                            daily_report.information_email_ids.append(result.id)
                             informational_results.append(result)
 
                     # Generate text report
