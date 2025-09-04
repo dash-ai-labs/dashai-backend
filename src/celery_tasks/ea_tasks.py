@@ -70,8 +70,12 @@ def daily_morning_report():
     with get_db() as db:
         users = db.query(User).all()
         for user in users:
-            if user.membership_status == MembershipStatus.ACTIVE:
+            if (
+                user.membership_status == MembershipStatus.ACTIVE
+                or user.membership_status == MembershipStatus.TRIAL
+            ):
                 try:
+
                     daily_report = DailyReport(
                         user_id=user.id,
                         daily_report_type=DailyReportType.MORNING,
@@ -80,6 +84,18 @@ def daily_morning_report():
                     )
                     db.add(daily_report)
                     db.commit()
+
+                    date_threshold = datetime.datetime.now() - datetime.timedelta(hours=12)
+                    if (
+                        earlier_report := db.query(DailyReport)
+                        .filter(
+                            DailyReport.user_id == user.id,
+                            DailyReport.daily_report_type == DailyReportType.MORNING,
+                            DailyReport.created_at > date_threshold,
+                        )
+                        .first()
+                    ):
+                        date_threshold = earlier_report.sent_at
                     email_account_ids = [
                         id_tuple[0]
                         for id_tuple in db.query(EmailAccount.id)
@@ -92,10 +108,9 @@ def daily_morning_report():
                             Email.email_account_id.in_(email_account_ids),
                             Email.categories.overlap(["actionable"]),
                             Email.folder == EmailFolder.INBOX,
-                            Email.date >= datetime.datetime.now() - datetime.timedelta(hours=12),
+                            Email.date >= date_threshold,
                         )
                         .order_by(Email.date.desc())
-                        .limit(10)
                         .all()
                     )
                     # Process actionable emails
@@ -125,10 +140,9 @@ def daily_morning_report():
                             Email.email_account_id.in_(email_account_ids),
                             Email.categories.overlap(["information"]),
                             Email.folder == EmailFolder.INBOX,
-                            Email.date >= datetime.datetime.now() - datetime.timedelta(hours=12),
+                            Email.date >= date_threshold,
                         )
                         .order_by(Email.date.desc())
-                        .limit(10)
                         .all()
                     )
 
