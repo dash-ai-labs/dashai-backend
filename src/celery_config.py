@@ -41,6 +41,14 @@ celery.conf.beat_schedule = {
         "task": "create_weekly_recap",
         "schedule": crontab(day_of_week=0, hour=0, minute=0),  # 7 days
     },
+    "daily-morning-report": {
+        "task": "daily_morning_report",
+        "schedule": crontab(hour=11, minute=0, timezone="UTC"),  # Run every day at 7 AM
+    },
+    # "daily-evening-report": {
+    #     "task": "daily_evening_report",
+    #     "schedule": crontab(hour=19, minute=0),  # Run every day at 7 PM
+    # },
     # "run-every-day-at-7am": {  # Updated task name
     #     "task": "get_new_transactions",
     #     "schedule": crontab(hour=7, minute=0),  # Run every day at 7 AM

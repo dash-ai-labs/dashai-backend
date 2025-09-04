@@ -2,9 +2,12 @@ import json
 
 from llama_index.core import Document, Settings, VectorStoreIndex
 from llama_index.core.ingestion import IngestionPipeline
+from llama_index.core.vector_stores.types import ExactMatchFilter, MetadataFilters
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI as LLMOpenAI
 from llama_index.vector_stores.postgres import PGVectorStore
+from llama_index.core.query_engine import ToolRetrieverRouterQueryEngine
+
 from openai import OpenAI
 
 from src.libs import SafeSemanticSplitter

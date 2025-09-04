@@ -42,6 +42,7 @@ class User(Base):
     show_tutorial = Column(Boolean, default=True)
     phone_number = Column(String, nullable=True)
     membership_status = Column(String, default=MembershipStatus.ACTIVE.value)
+    daily_reports = relationship("DailyReport", back_populates="user")
 
     def to_dict(self):
         return {

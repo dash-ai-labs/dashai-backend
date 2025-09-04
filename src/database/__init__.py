@@ -16,3 +16,4 @@ from .user import User
 from .vectory_db import VectorDB
 from .waitlist import OffWaitlist
 from .weekly_recap import WeeklyEmailRecap
+from .daily_report import DailyReport

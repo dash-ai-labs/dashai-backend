@@ -34,6 +34,7 @@ from src.libs.rag_utils import clean_up_text
 from src.libs.types import EmailFolder
 from src.services.gmail_service import GmailService
 from src.services.outlook_service import OutlookService
+from pgvector.sqlalchemy import Vector
 
 vector_db = VectorDB()
 
@@ -409,7 +410,9 @@ class Email(Base):
             start = max(new_start, start + 1)
 
     def _create_document(self):
-        cleaned_content = clean_up_text((self.subject or "").strip() + (self.content or "").strip())
+        cleaned_content = clean_up_text(
+            ("Subject: " + self.subject or "").strip() + ("Content: " + self.content or "").strip()
+        )
         # Split content into chunks if too long (assuming max tokens ~4000)
         documents = []
         for chunk in self.chunk_text_stream(cleaned_content):
@@ -423,9 +426,10 @@ class Email(Base):
                     "to": " ".join(self.to),
                     "cc": " ".join(self.cc),
                     "subject": self.subject if self.subject else "",
-                    "date": self.date.strftime("%Y %m %d %B") if self.date else "",
+                    "date": self.date if self.date else "",
                     "id": self.email_id,
                     "user": str(self.email_account.user.id),
+                    "categories": self.categories,
                 },
                 excluded_embed_metadata_keys=[],
                 excluded_llm_metadata_keys=[],

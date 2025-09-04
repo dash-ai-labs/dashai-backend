@@ -25,3 +25,9 @@ class EmailFolder(str, Enum):
     DRAFTS = "drafts"
     SPAM = "spam"
     TRASH = "trash"
+
+
+class DailyReportItem(BaseModel):
+    id: str
+    summary: str
+    category: str

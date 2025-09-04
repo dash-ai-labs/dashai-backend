@@ -1,8 +1,12 @@
 import json
+from typing import List
 
+from llama_index.core.output_parsers import PydanticOutputParser
 import openai
+from pydantic import BaseModel
 
 from src.libs.const import OPENAI_API_KEY
+
 
 client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
@@ -94,6 +98,40 @@ def classify_email(email: str):
         if api_response.error:
             return ["error"], api_response.error.message
         return json.loads(api_response.output_text), True
+
+    except Exception as e:
+        return ["error"], str(e)
+
+
+class DailyReportResult(BaseModel):
+    summary: str
+    id: list[str]
+
+
+class DailyReportResults(BaseModel):
+    results: List[DailyReportResult]
+
+
+def create_daily_report(emails: str):
+    system_prompt = f"""
+        You are an AI executive assistant trained to create a daily report from a list of emails.\
+        You will be provided with a list of emails. For each email you will need to create a summary \
+        of the email including the sender and the summary of the email. \
+        Should be less than 100 characters. Combine multiple emails from the same sender into one summary. \
+    """
+
+    input_message = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": emails},
+    ]
+    try:
+        api_response = client.responses.parse(
+            model="gpt-5-nano", input=input_message, text_format=DailyReportResults
+        )
+        if api_response.error:
+            print(api_response.error.message)
+            return ["error"], api_response.error.message
+        return api_response.output_parsed, True
 
     except Exception as e:
         return ["error"], str(e)
