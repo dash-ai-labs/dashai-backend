@@ -23,10 +23,9 @@ class WeeklyEmailRecap(Base):
     email_ids = Column(ARRAY(UUID), default=list)
 
     @classmethod
-    def add_to_latest_recap(cls, db: Session, email_account_id, emails):
+    def add_to_latest_recap(cls, db: Session, email_account_id, email_ids):
         """Add emails from this week to weekly recap"""
         if latest_recap := cls.get_latest_recap(db, email_account_id):
-            email_ids = [email.id for email in emails]
             latest_recap.email_ids.extend(email_ids)
             db.add(latest_recap)
             db.commit()

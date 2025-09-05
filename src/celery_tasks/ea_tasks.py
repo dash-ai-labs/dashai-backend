@@ -75,17 +75,8 @@ def daily_morning_report():
                 or user.membership_status == MembershipStatus.TRIAL
             ):
                 try:
-
-                    daily_report = DailyReport(
-                        user_id=user.id,
-                        daily_report_type=DailyReportType.MORNING,
-                        actionable_email_ids=[],
-                        information_email_ids=[],
-                    )
-                    db.add(daily_report)
-                    db.commit()
-
                     date_threshold = datetime.datetime.now() - datetime.timedelta(hours=12)
+
                     if (
                         earlier_report := db.query(DailyReport)
                         .filter(
@@ -101,11 +92,20 @@ def daily_morning_report():
                         else:
                             date_threshold = earlier_report.created_at
                     email_account_ids = [
-                        id_tuple[0]
-                        for id_tuple in db.query(EmailAccount.id)
-                        .filter(EmailAccount.user_id == user.id)
-                        .values(EmailAccount.id)
+                        email_account.id
+                        for email_account in db.query(EmailAccount).filter(
+                            EmailAccount.user_id == user.id
+                        )
                     ]
+
+                    daily_report = DailyReport(
+                        user_id=user.id,
+                        daily_report_type=DailyReportType.MORNING,
+                        actionable_email_ids=[],
+                        information_email_ids=[],
+                    )
+                    db.add(daily_report)
+                    db.commit()
                     actionable_emails = (
                         db.query(Email)
                         .filter(
@@ -135,7 +135,6 @@ def daily_morning_report():
                             else:
                                 daily_report.actionable_email_ids.append(result.id)
                             actionable_results.append(result)
-
                     # Process informational emails
                     informational_emails = (
                         db.query(Email)

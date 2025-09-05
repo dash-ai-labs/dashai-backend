@@ -588,7 +588,14 @@ def embed_new_emails(user_id: str = None):
 
             logger.info(f"Finished embedding and storing in VectorDB for user: {user_id}")
 
-            _check_and_add_to_weekly_recap(db, user_id, emails)
+            # Add emails to weekly recap for each email account
+            email_accounts = db.query(EmailAccount).filter(EmailAccount.user_id == user_id).all()
+            for email_account in email_accounts:
+                account_emails = [
+                    email for email in emails if email.email_account_id == email_account.id
+                ]
+                if account_emails:
+                    _check_and_add_to_weekly_recap(db, email_account.id, account_emails)
 
             logger.info(f"Added emails to weekly recap for user: {user_id}")
 
