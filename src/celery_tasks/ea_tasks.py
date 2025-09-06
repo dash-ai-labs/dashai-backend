@@ -91,6 +91,7 @@ def daily_morning_report():
                             date_threshold = earlier_report.sent_at
                         else:
                             date_threshold = earlier_report.created_at
+                    print("Date threshold: ", date_threshold)
                     email_account_ids = [
                         email_account.id
                         for email_account in db.query(EmailAccount).filter(
@@ -117,11 +118,12 @@ def daily_morning_report():
                         .order_by(Email.date.desc())
                         .all()
                     )
+                    print("Actionable emails: ", actionable_emails)
                     # Process actionable emails
                     actionable_response, _ = create_daily_report(
                         "\n".join([serialize_email(email) for email in actionable_emails])
                     )
-
+                    print("Actionable response: ", actionable_response)
                     # Collect actionable email data
                     actionable_results = []
                     if (
