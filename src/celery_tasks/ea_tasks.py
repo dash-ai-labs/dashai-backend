@@ -1,7 +1,8 @@
 import datetime
 import logging
 import os
-from typing import List
+from typing import List, Tuple, Optional
+from enum import Enum
 from celery import shared_task
 from llama_index.core.output_parsers import PydanticOutputParser
 
@@ -21,6 +22,15 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.WARNING)
 
 vector_db = VectorDB()
+
+
+# Constants
+class EmailCategory(str, Enum):
+    ACTIONABLE = "actionable"
+    INFORMATION = "information"
+
+
+REPORT_HOURS_THRESHOLD = 12
 
 
 class DailyReportResult(BaseModel):
@@ -65,159 +75,228 @@ def generate_email_list_html(results, item_class):
     return "\n".join(html_items)
 
 
+def _calculate_date_threshold(db, user_id: str) -> datetime.datetime:
+    """Calculate the appropriate date threshold for email filtering."""
+    base_threshold = datetime.datetime.now() - datetime.timedelta(hours=REPORT_HOURS_THRESHOLD)
+
+    earlier_report = (
+        db.query(DailyReport)
+        .filter(
+            DailyReport.user_id == user_id,
+            DailyReport.daily_report_type == DailyReportType.MORNING,
+            DailyReport.created_at > base_threshold,
+        )
+        .first()
+    )
+
+    if earlier_report:
+        # Use the earlier report's sent_at time if it exists, otherwise use created_at
+        threshold = earlier_report.sent_at or earlier_report.created_at
+        logger.info(f"Using previous report threshold: {threshold} for user {user_id}")
+        return threshold
+
+    logger.info(f"Using base threshold: {base_threshold} for user {user_id}")
+    return base_threshold
+
+
+def _get_user_email_account_ids(db, user_id: str) -> List[str]:
+    """Get all email account IDs for a user."""
+    return [
+        email_account.id
+        for email_account in db.query(EmailAccount).filter(EmailAccount.user_id == user_id)
+    ]
+
+
+def _query_emails_by_category(
+    db, email_account_ids: List[str], category: EmailCategory, date_threshold: datetime.datetime
+) -> List[Email]:
+    """Query emails by category with common filters."""
+    return (
+        db.query(Email)
+        .filter(
+            Email.email_account_id.in_(email_account_ids),
+            Email.categories.overlap([category.value]),
+            Email.folder == EmailFolder.INBOX,
+            Email.date >= date_threshold,
+        )
+        .order_by(Email.date.desc())
+        .all()
+    )
+
+
+def _process_email_results(response, daily_report: DailyReport, category: EmailCategory) -> List:
+    """Process email results and update daily report with email IDs."""
+    results = []
+    if not (response and hasattr(response, "results") and response.results):
+        return results
+
+    for result in response.results:
+        if isinstance(result.id, list):
+            if category == EmailCategory.ACTIONABLE:
+                daily_report.actionable_email_ids.extend(result.id)
+            else:
+                daily_report.information_email_ids.extend(result.id)
+        else:
+            if category == EmailCategory.ACTIONABLE:
+                daily_report.actionable_email_ids.append(result.id)
+            else:
+                daily_report.information_email_ids.append(result.id)
+        results.append(result)
+
+    return results
+
+
+def _generate_text_report(
+    user_name: str, actionable_results: List, informational_results: List
+) -> str:
+    """Generate the text version of the daily report."""
+    text_report = f"Hi {user_name}, your morning email report is ready.\n\n"
+
+    # Actionable emails section
+    text_report += "Actionable Emails:\n"
+    if actionable_results:
+        for result in actionable_results:
+            text_report += f"\n* {result.summary}"
+    else:
+        text_report += "\n* No actionable emails found"
+
+    # Informational emails section
+    text_report += "\n\nInformational Emails:\n"
+    if informational_results:
+        for result in informational_results:
+            text_report += f"\n* {result.summary}"
+    else:
+        text_report += "\n* No informational emails found"
+
+    text_report += f"\n\nReport generated at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nReport by DashAI"
+    return text_report
+
+
+def _generate_html_report(
+    user_name: str, actionable_results: List, informational_results: List
+) -> str:
+    """Generate the HTML version of the daily report."""
+    html_template = load_html_template("morning_report.html")
+    actionable_emails_html = generate_email_list_html(actionable_results, "actionable-item")
+    informational_emails_html = generate_email_list_html(
+        informational_results, "informational-item"
+    )
+
+    return html_template.format(
+        user_name=user_name,
+        actionable_emails_content=actionable_emails_html,
+        informational_emails_content=informational_emails_html,
+        generated_at=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    )
+
+
+def _process_user_emails(
+    db, user: User, date_threshold: datetime.datetime, email_account_ids: List[str]
+) -> Tuple[List, List]:
+    """Process both actionable and informational emails for a user."""
+    # Query actionable emails
+    actionable_emails = _query_emails_by_category(
+        db, email_account_ids, EmailCategory.ACTIONABLE, date_threshold
+    )
+    logger.info(f"Found {len(actionable_emails)} actionable emails for user {user.id}")
+
+    # Query informational emails
+    informational_emails = _query_emails_by_category(
+        db, email_account_ids, EmailCategory.INFORMATION, date_threshold
+    )
+    logger.info(f"Found {len(informational_emails)} informational emails for user {user.id}")
+
+    return actionable_emails, informational_emails
+
+
+def _generate_daily_report_for_user(db, user: User) -> None:
+    """Generate and send daily morning report for a single user."""
+    logger.info(f"Generating daily morning report for user {user.id} ({user.email})")
+
+    # Calculate date threshold
+    date_threshold = _calculate_date_threshold(db, user.id)
+
+    # Get user's email accounts
+    email_account_ids = _get_user_email_account_ids(db, user.id)
+    if not email_account_ids:
+        logger.warning(f"No email accounts found for user {user.id}")
+        return
+
+    # Create daily report record
+    daily_report = DailyReport(
+        user_id=user.id,
+        daily_report_type=DailyReportType.MORNING,
+        actionable_email_ids=[],
+        information_email_ids=[],
+    )
+    db.add(daily_report)
+    db.flush()  # Get the ID without committing
+
+    # Process emails
+    actionable_emails, informational_emails = _process_user_emails(
+        db, user, date_threshold, email_account_ids
+    )
+
+    # Generate reports for actionable emails
+    actionable_response = None
+    if actionable_emails:
+        actionable_response, _ = create_daily_report(
+            "\n".join([serialize_email(email) for email in actionable_emails])
+        )
+
+    # Generate reports for informational emails
+    informational_response = None
+    if informational_emails:
+        informational_response, _ = create_daily_report(
+            "\n".join([serialize_email(email) for email in informational_emails])
+        )
+
+    # Process results
+    actionable_results = _process_email_results(
+        actionable_response, daily_report, EmailCategory.ACTIONABLE
+    )
+    informational_results = _process_email_results(
+        informational_response, daily_report, EmailCategory.INFORMATION
+    )
+
+    # Generate reports
+    text_report = _generate_text_report(user.name, actionable_results, informational_results)
+    html_report = _generate_html_report(user.name, actionable_results, informational_results)
+
+    # Update daily report
+    daily_report.text_report = text_report
+    daily_report.html_report = html_report
+    db.commit()
+
+    # Send email
+    response = send_email(user.email, "Daily Morning Report", text_report, html_report)
+    if response:
+        daily_report.sent_at = datetime.datetime.now()
+        db.commit()
+        logger.info(f"Successfully sent daily morning report to user {user.id}")
+    else:
+        logger.error(f"Failed to send daily morning report to user {user.id}")
+
+
 @shared_task(name="daily_morning_report")
 def daily_morning_report():
+    """Generate and send daily morning reports for all eligible users."""
     with get_db() as db:
-        users = db.query(User).all()
-        for user in users:
-            if (
-                user.membership_status == MembershipStatus.ACTIVE
-                or user.membership_status == MembershipStatus.TRIAL
-            ):
-                try:
-                    date_threshold = datetime.datetime.now() - datetime.timedelta(hours=12)
+        eligible_users = (
+            db.query(User)
+            .filter(User.membership_status.in_([MembershipStatus.ACTIVE, MembershipStatus.TRIAL]))
+            .all()
+        )
 
-                    if (
-                        earlier_report := db.query(DailyReport)
-                        .filter(
-                            DailyReport.user_id == user.id,
-                            DailyReport.daily_report_type == DailyReportType.MORNING,
-                            DailyReport.created_at > date_threshold,
-                        )
-                        .first()
-                    ):
-                        # Use the earlier report's sent_at time if it exists, otherwise use created_at
-                        if earlier_report.sent_at is not None:
-                            date_threshold = earlier_report.sent_at
-                        else:
-                            date_threshold = earlier_report.created_at
-                    print("Date threshold: ", date_threshold)
-                    email_account_ids = [
-                        email_account.id
-                        for email_account in db.query(EmailAccount).filter(
-                            EmailAccount.user_id == user.id
-                        )
-                    ]
+        logger.info(f"Processing daily morning reports for {len(eligible_users)} eligible users")
 
-                    daily_report = DailyReport(
-                        user_id=user.id,
-                        daily_report_type=DailyReportType.MORNING,
-                        actionable_email_ids=[],
-                        information_email_ids=[],
-                    )
-                    db.add(daily_report)
-                    db.commit()
-                    actionable_emails = (
-                        db.query(Email)
-                        .filter(
-                            Email.email_account_id.in_(email_account_ids),
-                            Email.categories.overlap(["actionable"]),
-                            Email.folder == EmailFolder.INBOX,
-                            Email.date >= date_threshold,
-                        )
-                        .order_by(Email.date.desc())
-                        .all()
-                    )
-                    print("Actionable emails: ", actionable_emails)
-                    # Process actionable emails
-                    actionable_response, _ = create_daily_report(
-                        "\n".join([serialize_email(email) for email in actionable_emails])
-                    )
-                    print("Actionable response: ", actionable_response)
-                    # Collect actionable email data
-                    actionable_results = []
-                    if (
-                        actionable_response
-                        and hasattr(actionable_response, "results")
-                        and len(actionable_response.results) > 0
-                    ):
-                        for result in actionable_response.results:
-                            if isinstance(result.id, list):
-                                daily_report.actionable_email_ids.extend(result.id)
-                            else:
-                                daily_report.actionable_email_ids.append(result.id)
-                            actionable_results.append(result)
-                    # Process informational emails
-                    informational_emails = (
-                        db.query(Email)
-                        .filter(
-                            Email.email_account_id.in_(email_account_ids),
-                            Email.categories.overlap(["information"]),
-                            Email.folder == EmailFolder.INBOX,
-                            Email.date >= date_threshold,
-                        )
-                        .order_by(Email.date.desc())
-                        .all()
-                    )
-
-                    informational_response, _ = create_daily_report(
-                        "\n".join([serialize_email(email) for email in informational_emails])
-                    )
-
-                    # Collect informational email data
-                    informational_results = []
-                    if (
-                        informational_response
-                        and hasattr(informational_response, "results")
-                        and len(informational_response.results) > 0
-                    ):
-                        for result in informational_response.results:
-                            if isinstance(result.id, list):
-                                daily_report.information_email_ids.extend(result.id)
-                            else:
-                                daily_report.information_email_ids.append(result.id)
-                            informational_results.append(result)
-
-                    # Generate text report
-                    text_report = f"Hi {user.name}, your morning email report is ready.\n\n"
-                    text_report += "Actionable Emails:\n"
-                    if actionable_results:
-                        for result in actionable_results:
-                            text_report += f"\n* {result.summary}"
-                    else:
-                        text_report += "\n* No actionable emails found"
-
-                    text_report += "\n\nInformational Emails:\n"
-                    if informational_results:
-                        for result in informational_results:
-                            text_report += f"\n* {result.summary}"
-                    else:
-                        text_report += "\n* No informational emails found"
-
-                    text_report += f"\n\nReport generated at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\nReport by DashAI"
-
-                    # Generate HTML report using template
-                    html_template = load_html_template("morning_report.html")
-                    actionable_emails_html = generate_email_list_html(
-                        actionable_results, "actionable-item"
-                    )
-                    informational_emails_html = generate_email_list_html(
-                        informational_results, "informational-item"
-                    )
-
-                    html_report = html_template.format(
-                        user_name=user.name,
-                        actionable_emails_content=actionable_emails_html,
-                        informational_emails_content=informational_emails_html,
-                        generated_at=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    )
-
-                    daily_report.text_report = text_report
-                    daily_report.html_report = html_report
-                    db.add(daily_report)
-                    db.commit()
-                    response = send_email(
-                        user.email, "Daily Morning Report", text_report, html_report
-                    )
-                    if response:
-                        daily_report.sent_at = datetime.datetime.now()
-                        db.add(daily_report)
-                        db.commit()
-                    else:
-                        logger.error(f"Error sending daily morning report to user {user.id}")
-
-                except Exception as e:
-                    logger.error(f"Error generating daily morning report for user {user.id}: {e}")
+        for user in eligible_users:
+            try:
+                _generate_daily_report_for_user(db, user)
+            except Exception as e:
+                logger.error(
+                    f"Error generating daily morning report for user {user.id}: {e}", exc_info=True
+                )
 
 
 @shared_task(name="daily_evening_report")
