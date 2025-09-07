@@ -45,7 +45,7 @@ celery.conf.beat_schedule = {
     },
     "daily-morning-report": {
         "task": "daily_morning_report",
-        "schedule": crontab(hour=11, minute=0),  # Run every day at 7 AM EST
+        "schedule": crontab(hour=12, minute=40),  # Run every day at 7 AM EST
     },
     # "daily-evening-report": {
     #     "task": "daily_evening_report",
