@@ -579,12 +579,12 @@ def embed_new_emails(user_id: str = None):
                     email_address=email.sender[0],
                     name=email.sender_name[0] if len(email.sender_name) > 0 else "",
                 )
-                response = Email.embed_and_store(user_id=user_id, email=email)
+                # response = Email.embed_and_store(user_id=user_id, email=email)
                 processed_email_count += 1
-                if response:
-                    email.processed = True
-                    db.add(email)
-                    db.commit()
+                # if response:
+                email.processed = True
+                db.add(email)
+                db.commit()
 
             logger.info(f"Finished embedding and storing in VectorDB for user: {user_id}")
 

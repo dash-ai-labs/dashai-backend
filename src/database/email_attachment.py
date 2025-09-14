@@ -134,12 +134,12 @@ class EmailAttachment(Base):
             print(f"Error uploading attachment: {attachment.id} to GCP: ", e)
             return False
 
-        try:
-            with open(f"/temp_file_storage/{filepath}", "wb") as f:
-                f.write(attachment_data)
-            vector_db.insert(attachment._create_document(f"/temp_file_storage/{filepath}"), user_id)
-        except Exception as e:
-            print(f"Error embedding attachment: {attachment.id} to VectorDB: ", e)
-            return False
+        # try:
+        #     with open(f"/temp_file_storage/{filepath}", "wb") as f:
+        #         f.write(attachment_data)
+        #     vector_db.insert(attachment._create_document(f"/temp_file_storage/{filepath}"), user_id)
+        # except Exception as e:
+        #     print(f"Error embedding attachment: {attachment.id} to VectorDB: ", e)
+        #     return False
 
         return True
