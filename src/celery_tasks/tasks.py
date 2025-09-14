@@ -600,7 +600,7 @@ def embed_new_emails(user_id: str = None):
             logger.info(f"Added emails to weekly recap for user: {user_id}")
 
             logger.info(f"Generating summaries for {len(emails)} emails...")
-            for email in tqdm(emails, desc="Summarizing emails", unit="email"):
+            for email in emails:
                 if email.summary is None:
                     summary = summarize_text(
                         content=f"{email.subject} {email.content}", name=user.name
