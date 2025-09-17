@@ -7,6 +7,7 @@ from celery import shared_task
 from llama_index.core.output_parsers import PydanticOutputParser
 
 from openai import BaseModel
+from sqlalchemy import select
 
 from src.libs.types import EmailFolder
 from src.libs.llm_utils import create_daily_report
@@ -80,14 +81,15 @@ def _calculate_date_threshold(db, user_id: str) -> datetime.datetime:
     base_threshold = datetime.datetime.now() - datetime.timedelta(hours=REPORT_HOURS_THRESHOLD)
 
     earlier_report = (
-        db.query(DailyReport)
-        .filter(
+        select(DailyReport)
+        .where(
             DailyReport.user_id == user_id,
-            DailyReport.daily_report_type == DailyReportType.MORNING,
-            DailyReport.created_at > base_threshold,
+            DailyReport.daily_report_type == DailyReportType.MORNING.value,
+            DailyReport.created_at >= base_threshold,
         )
-        .first()
+        .limit(1)
     )
+    earlier_report = db.execute(earlier_report).scalar_one_or_none()
 
     if earlier_report:
         # Use the earlier report's sent_at time if it exists, otherwise use created_at
@@ -111,39 +113,19 @@ def _query_emails_by_category(
     db, email_account_ids: List[str], category: EmailCategory, date_threshold: datetime.datetime
 ) -> List[Email]:
     """Query emails by category with common filters."""
-    return (
+    res = (
         db.query(Email)
         .filter(
             Email.email_account_id.in_(email_account_ids),
-            Email.categories.overlap([category.value]),
             Email.folder == EmailFolder.INBOX,
             Email.date >= date_threshold,
         )
         .order_by(Email.date.desc())
         .all()
     )
-
-
-def _process_email_results(response, daily_report: DailyReport, category: EmailCategory) -> List:
-    """Process email results and update daily report with email IDs."""
-    results = []
-    if not (response and hasattr(response, "results") and response.results):
-        return results
-
-    for result in response.results:
-        if isinstance(result.id, list):
-            if category == EmailCategory.ACTIONABLE:
-                daily_report.actionable_email_ids.extend(result.id)
-            else:
-                daily_report.information_email_ids.extend(result.id)
-        else:
-            if category == EmailCategory.ACTIONABLE:
-                daily_report.actionable_email_ids.append(result.id)
-            else:
-                daily_report.information_email_ids.append(result.id)
-        results.append(result)
-
-    return results
+    if res:
+        return [email for email in res if category.value in email.categories]
+    return []
 
 
 def _generate_text_report(
@@ -236,7 +218,6 @@ def _generate_daily_report_for_user(db, user: User) -> None:
     actionable_emails, informational_emails = _process_user_emails(
         db, user, date_threshold, email_account_ids
     )
-
     # Generate reports for actionable emails
     actionable_response = None
     if actionable_emails:
@@ -252,12 +233,8 @@ def _generate_daily_report_for_user(db, user: User) -> None:
         )
 
     # Process results
-    actionable_results = _process_email_results(
-        actionable_response, daily_report, EmailCategory.ACTIONABLE
-    )
-    informational_results = _process_email_results(
-        informational_response, daily_report, EmailCategory.INFORMATION
-    )
+    actionable_results = actionable_response.results if actionable_response.results else []
+    informational_results = informational_response.results if informational_response.results else []
 
     # Generate reports
     text_report = _generate_text_report(user.name, actionable_results, informational_results)
@@ -266,6 +243,9 @@ def _generate_daily_report_for_user(db, user: User) -> None:
     # Update daily report
     daily_report.text_report = text_report
     daily_report.html_report = html_report
+
+    daily_report.actionable_email_ids = [result.id for result in actionable_results]
+    daily_report.information_email_ids = [result.id for result in informational_results]
     db.commit()
 
     # Send email
