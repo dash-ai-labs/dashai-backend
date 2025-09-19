@@ -123,9 +123,11 @@ def _query_emails_by_category(
         .order_by(Email.date.desc())
         .all()
     )
-    if res:
-        return [email for email in res if category.value in email.categories]
-    return []
+    matching_emails = []
+    for email in res:
+        if email.categories and category.value in email.categories:
+            matching_emails.append(email)
+    return matching_emails
 
 
 def _generate_text_report(
@@ -261,6 +263,7 @@ def _generate_daily_report_for_user(db, user: User) -> None:
 @shared_task(name="daily_morning_report")
 def daily_morning_report():
     """Generate and send daily morning reports for all eligible users."""
+    # First, get the list of eligible users
     with get_db() as db:
         eligible_users = (
             db.query(User)
@@ -268,15 +271,17 @@ def daily_morning_report():
             .all()
         )
 
-        logger.info(f"Processing daily morning reports for {len(eligible_users)} eligible users")
+    logger.info(f"Processing daily morning reports for {len(eligible_users)} eligible users")
 
-        for user in eligible_users:
-            try:
+    # Process each user with their own isolated database session
+    for user in eligible_users:
+        try:
+            with get_db() as db:
                 _generate_daily_report_for_user(db, user)
-            except Exception as e:
-                logger.error(
-                    f"Error generating daily morning report for user {user.id}: {e}", exc_info=True
-                )
+        except Exception as e:
+            logger.error(
+                f"Error generating daily morning report for user {user.id}: {e}", exc_info=True
+            )
 
 
 @shared_task(name="daily_evening_report")
