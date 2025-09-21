@@ -263,24 +263,29 @@ def _generate_daily_report_for_user(db, user: User) -> None:
 @shared_task(name="daily_morning_report")
 def daily_morning_report():
     """Generate and send daily morning reports for all eligible users."""
-    # First, get the list of eligible users
+    # First, get the list of eligible user IDs
     with get_db() as db:
-        eligible_users = (
-            db.query(User)
+        eligible_user_ids = [
+            user_id
+            for user_id, in db.query(User.id)
             .filter(User.membership_status.in_([MembershipStatus.ACTIVE, MembershipStatus.TRIAL]))
             .all()
-        )
+        ]
 
-    logger.info(f"Processing daily morning reports for {len(eligible_users)} eligible users")
+    logger.info(f"Processing daily morning reports for {len(eligible_user_ids)} eligible users")
 
     # Process each user with their own isolated database session
-    for user in eligible_users:
+    for user_id in eligible_user_ids:
         try:
             with get_db() as db:
-                _generate_daily_report_for_user(db, user)
+                user = db.query(User).filter(User.id == user_id).first()
+                if user:
+                    _generate_daily_report_for_user(db, user)
+                else:
+                    logger.warning(f"User {user_id} not found when processing daily report")
         except Exception as e:
             logger.error(
-                f"Error generating daily morning report for user {user.id}: {e}", exc_info=True
+                f"Error generating daily morning report for user {user_id}: {e}", exc_info=True
             )
 
 
