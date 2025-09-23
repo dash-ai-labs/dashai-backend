@@ -238,11 +238,21 @@ def _generate_daily_report_for_user(db, user: User) -> None:
     actionable_results = (
         actionable_response.results if actionable_response and actionable_response.results else []
     )
+    actionable_results = [
+        item
+        for sublist in actionable_results
+        for item in (sublist if isinstance(sublist, list) else [sublist])
+    ]
     informational_results = (
         informational_response.results
         if informational_response and informational_response.results
         else []
     )
+    informational_results = [
+        item
+        for sublist in informational_results
+        for item in (sublist if isinstance(sublist, list) else [sublist])
+    ]
 
     # Generate reports
     text_report = _generate_text_report(user.name, actionable_results, informational_results)
