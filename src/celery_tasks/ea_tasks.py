@@ -234,25 +234,30 @@ def _generate_daily_report_for_user(db, user: User) -> None:
             "\n".join([serialize_email(email) for email in informational_emails])
         )
 
-    # Process results
+    # Process results - ensure 1-dimensional lists
+    def flatten_to_1d(data):
+        """Recursively flatten nested lists to a single dimension."""
+        if not data:
+            return []
+        result = []
+        for item in data:
+            if isinstance(item, list):
+                result.extend(flatten_to_1d(item))
+            else:
+                result.append(item)
+        return result
+
     actionable_results = (
         actionable_response.results if actionable_response and actionable_response.results else []
     )
-    actionable_results = [
-        item
-        for sublist in actionable_results
-        for item in (sublist if isinstance(sublist, list) else [sublist])
-    ]
+    actionable_results = flatten_to_1d(actionable_results)
+
     informational_results = (
         informational_response.results
         if informational_response and informational_response.results
         else []
     )
-    informational_results = [
-        item
-        for sublist in informational_results
-        for item in (sublist if isinstance(sublist, list) else [sublist])
-    ]
+    informational_results = flatten_to_1d(informational_results)
 
     # Generate reports
     text_report = _generate_text_report(user.name, actionable_results, informational_results)
