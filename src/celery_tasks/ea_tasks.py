@@ -258,7 +258,6 @@ def _generate_daily_report_for_user(db, user: User) -> None:
         else []
     )
     informational_results = flatten_to_1d(informational_results)
-
     # Generate reports
     text_report = _generate_text_report(user.name, actionable_results, informational_results)
     html_report = _generate_html_report(user.name, actionable_results, informational_results)
@@ -267,12 +266,18 @@ def _generate_daily_report_for_user(db, user: User) -> None:
     daily_report.text_report = text_report
     daily_report.html_report = html_report
 
-    daily_report.actionable_email_ids = [result.id for result in actionable_results]
-    daily_report.information_email_ids = [result.id for result in informational_results]
+    # Extract and flatten email IDs to ensure 1D list of strings
+    daily_report.actionable_email_ids = flatten_to_1d([result.id for result in actionable_results])
+    daily_report.information_email_ids = flatten_to_1d(
+        [result.id for result in informational_results]
+    )
     db.commit()
 
     # Send email
-    response = send_email(user.email, "Daily Morning Report", text_report, html_report)
+    if len(actionable_results) > 0 or len(informational_results) > 0:
+        response = send_email(user.email, "Daily Morning Report", text_report, html_report)
+    else:
+        response = None
     if response:
         daily_report.sent_at = datetime.datetime.now()
         db.commit()
